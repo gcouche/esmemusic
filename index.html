@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MIDI Sheet Music Trainer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: #F9F5EB;
+      color: #1C1917;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-dvh w-full bg-[#F9F5EB] text-stone-900">
+
+  <!-- Minimal Top Control Bar -->
+  <header class="w-full bg-[#F2ECE0] border-b border-[#DFD6C5] px-3 py-2 sm:px-5 sm:py-2.5 flex flex-wrap items-center justify-between gap-2 z-20 shrink-0">
+    
+    <!-- Left: Load MIDI + Piece Title + USB MIDI Status -->
+    <div class="flex items-center gap-2 min-w-0">
+      <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs sm:text-sm font-medium shadow-sm shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
+        <span>Load MIDI</span>
+        <input id="midiFileInput" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" class="hidden" />
+      </label>
+
+      <div class="hidden md:flex flex-col min-w-0 max-w-[200px] pl-1">
+        <span id="pieceTitle" class="text-sm font-semibold text-stone-800 truncate" style="font-family: 'Crimson Pro', Georgia, serif;">Bach — Prelude in C Major</span>
+      </div>
+
+      <!-- USB MIDI Connection Button / Popover Trigger -->
+      <div class="relative">
+        <button id="midiPortBtn" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] hover:bg-white text-xs font-medium text-stone-700 transition">
+          <span id="midiStatusDot" class="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+          <span id="midiStatusLabel" class="max-w-[110px] sm:max-w-[150px] truncate">USB MIDI</span>
+        </button>
+
+        <!-- Minimal Port Selector Popover (hidden until tapped) -->
+        <div id="midiPopover" class="hidden absolute left-0 mt-2 w-72 p-3 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30 text-xs space-y-2.5">
+          <div>
+            <label class="block font-semibold text-stone-600 mb-1">MIDI Input (Piano Keys)</label>
+            <select id="midiInSelect" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 focus:outline-none">
+              <option value="">None detected</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-stone-600 mb-1">MIDI Output (Piano Sound)</label>
+            <select id="midiOutSelect" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 focus:outline-none">
+              <option value="">None detected</option>
+            </select>
+          </div>
+          <p id="midiHelpText" class="text-[11px] text-stone-500 leading-relaxed">
+            Connect your piano via USB. Notes are read from and sent directly back to your piano.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center: Play / Learn Mode Switch & Transport -->
+    <div class="flex items-center gap-2">
+      <!-- Mode Toggle -->
+      <div class="inline-flex p-0.5 rounded-lg bg-[#E5DEC9] border border-[#D6CBB8]" role="group" aria-label="Mode">
+        <button id="modePlayBtn" type="button" class="px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs">
+          Play
+        </button>
+        <button id="modeLearnBtn" type="button" class="px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900">
+          Learn
+        </button>
+      </div>
+
+      <!-- Play/Pause & Restart -->
+      <div class="inline-flex items-center gap-1">
+        <button id="playPauseBtn" type="button" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs sm:text-sm font-medium shadow-sm transition min-w-[82px]">
+          <svg id="playIcon" class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          <svg id="pauseIcon" class="w-4 h-4 fill-current hidden" viewBox="0 0 24 24">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+          </svg>
+          <span id="playPauseLabel">Play</span>
+        </button>
+
+        <button id="restartBtn" type="button" title="Restart" aria-label="Restart" class="p-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] hover:bg-white active:scale-[0.99] text-stone-700 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: Speed Controls (1x, 1/2x, 1/4x) -->
+    <div class="inline-flex p-0.5 rounded-lg bg-[#E5DEC9] border border-[#D6CBB8]" role="group" aria-label="Playback Speed">
+      <button type="button" data-speed="1" class="speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs">
+        1×
+      </button>
+      <button type="button" data-speed="0.5" class="speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900">
+        ½×
+      </button>
+      <button type="button" data-speed="0.25" class="speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900">
+        ¼×
+      </button>
+    </div>
+
+  </header>
+
+  <!-- Main Full-Bleed Sheet Music Canvas -->
+  <main id="canvasContainer" class="relative flex-1 w-full overflow-hidden">
+    <canvas id="sheetCanvas"></canvas>
+
+    <!-- Subtle non-intrusive status toast (only shows briefly when loading file or MIDI changes) -->
+    <div id="statusToast" class="pointer-events-none opacity-0 transition-opacity duration-300 absolute bottom-4 left-1/2 -translate-x-1/2 px-3.5 py-1.5 rounded-full bg-stone-900/85 text-[#F9F5EB] text-xs font-medium shadow-md">
+      Ready
+    </div>
+  </main>
+
+  <script>
+    /**
+     * ============================================================================
+     * USB MIDI SHEET MUSIC TRAINER
+     * Single-file application for iPad & Desktop browsers.
+     * - Reads USB MIDI input from connected digital piano
+     * - Pushes MIDI Note On / Note Off back to connected digital piano output
+     * - Parses Standard MIDI Files (.mid / .midi)
+     * - Renders classic engraved Grand Staff sheet music with playhead tracking
+     * - Supports Play Mode (1x, 1/2x, 1/4x speed) & Learning Mode (step-wait)
+     * ============================================================================
+     */
+
+    // --------------------------------------------------------------------------
+    // 1. APPLICATION STATE
+    // --------------------------------------------------------------------------
+    const state = {
+      mode: 'play',            // 'play' | 'learn'
+      isPlaying: false,
+      speed: 1.0,              // 1.0 | 0.5 | 0.25
+
+      // Song data parsed from MIDI file
+      song: null,
+
+      // Playback cursor state
+      currentTick: 0,
+      lastFrameTime: null,
+
+      // Active sounding notes sent to MIDI Out: Map<pitch, { note, channel }>
+      soundingOutNotes: new Map(),
+
+      // User pressed keys from USB MIDI In: Set<pitch>
+      userHeldPitches: new Set(),
+
+      // Learning mode state
+      learnSteps: [],          // Array of { tick, notes: NoteObj[], requiredPitches: Set<number> }
+      currentStepIndex: 0,
+      waitingForUser: false,
+      stepFreshPresses: new Set(), // Pitches freshly pressed since entering current step
+
+      // Web MIDI state
+      midiAccess: null,
+      midiInputs: [],
+      midiOutputs: [],
+      selectedInputId: '',
+      selectedOutputId: '',
+
+      // Canvas & Scrubbing state
+      isDragging: false,
+      dragStartX: 0,
+      dragStartTick: 0,
+      wasPlayingBeforeDrag: false,
+      pxPerQuarter: 112        // Horizontal engraved spacing per quarter note
+    };
+
+    // DOM References
+    const canvas = document.getElementById('sheetCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+    const midiFileInput = document.getElementById('midiFileInput');
+    const pieceTitleEl = document.getElementById('pieceTitle');
+    const midiPortBtn = document.getElementById('midiPortBtn');
+    const midiPopover = document.getElementById('midiPopover');
+    const midiStatusDot = document.getElementById('midiStatusDot');
+    const midiStatusLabel = document.getElementById('midiStatusLabel');
+    const midiInSelect = document.getElementById('midiInSelect');
+    const midiOutSelect = document.getElementById('midiOutSelect');
+    const midiHelpText = document.getElementById('midiHelpText');
+    const modePlayBtn = document.getElementById('modePlayBtn');
+    const modeLearnBtn = document.getElementById('modeLearnBtn');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+    const playPauseLabel = document.getElementById('playPauseLabel');
+    const restartBtn = document.getElementById('restartBtn');
+    const speedBtns = document.querySelectorAll('.speed-btn');
+    const statusToast = document.getElementById('statusToast');
+
+    let toastTimer = null;
+    function showToast(msg) {
+      statusToast.textContent = msg;
+      statusToast.classList.remove('opacity-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        statusToast.classList.add('opacity-0');
+      }, 2200);
+    }
+
+    // --------------------------------------------------------------------------
+    // 2. WEB MIDI INPUT & OUTPUT ENGINE
+    // --------------------------------------------------------------------------
+    let midiInitAttempts = 0;
+
+    async function initWebMIDI() {
+      const isEmbeddedIframe = (() => {
+        try {
+          return window.self !== window.top;
+        } catch (e) {
+          return true;
+        }
+      })();
+
+      // Retry briefly in case iOS Web MIDI Browser injects navigator.requestMIDIAccess after load
+      if (!navigator.requestMIDIAccess) {
+        if (midiInitAttempts < 8) {
+          midiInitAttempts++;
+          setTimeout(initWebMIDI, 350);
+          return;
+        }
+
+        midiStatusDot.className = 'w-2 h-2 rounded-full bg-rose-500 shrink-0';
+        midiStatusLabel.textContent = isEmbeddedIframe ? 'Iframe Blocked' : 'No WebMIDI';
+        midiHelpText.textContent = isEmbeddedIframe
+          ? 'Embedded pages (such as Google Sites) block USB MIDI. Host this HTML on a direct HTTPS URL (e.g. Netlify Drop or GitHub Pages) and open it directly in Web MIDI Browser.'
+          : 'Web MIDI is not available here. On iPad, open this direct HTTPS page in Web MIDI Browser with your USB piano plugged in.';
+        return;
+      }
+
+      try {
+        // Call requestMIDIAccess() without options first for best compatibility with iOS Web MIDI Browser
+        let access;
+        try {
+          access = await navigator.requestMIDIAccess();
+        } catch (e) {
+          access = await navigator.requestMIDIAccess({ sysex: false });
+        }
+
+        state.midiAccess = access;
+        refreshMidiPorts();
+
+        access.onstatechange = () => {
+          refreshMidiPorts();
+        };
+      } catch (err) {
+        midiStatusDot.className = 'w-2 h-2 rounded-full bg-rose-500 shrink-0';
+        midiStatusLabel.textContent = 'MIDI Blocked';
+        midiHelpText.textContent = isEmbeddedIframe
+          ? 'Google Sites blocked MIDI access inside its embed frame. Host this HTML as a standalone HTTPS page and open it directly in Web MIDI Browser.'
+          : `MIDI access failed (${err && err.message ? err.message : 'permission denied'}). Reconnect USB and tap USB MIDI to retry.`;
+      }
+    }
+
+    function refreshMidiPorts() {
+      if (!state.midiAccess) return;
+
+      state.midiInputs = Array.from(state.midiAccess.inputs.values());
+      state.midiOutputs = Array.from(state.midiAccess.outputs.values());
+
+      // Populate Input dropdown
+      midiInSelect.innerHTML = '';
+      if (state.midiInputs.length === 0) {
+        midiInSelect.innerHTML = '<option value="">No USB MIDI Input</option>';
+        state.selectedInputId = '';
+      } else {
+        state.midiInputs.forEach((input) => {
+          const opt = document.createElement('option');
+          opt.value = input.id;
+          opt.textContent = input.name || `MIDI Input ${input.id}`;
+          midiInSelect.appendChild(opt);
+        });
+        if (!state.midiInputs.some(i => i.id === state.selectedInputId)) {
+          state.selectedInputId = state.midiInputs[0].id;
+        }
+        midiInSelect.value = state.selectedInputId;
+      }
+
+      // Populate Output dropdown
+      midiOutSelect.innerHTML = '';
+      if (state.midiOutputs.length === 0) {
+        midiOutSelect.innerHTML = '<option value="">No USB MIDI Output</option>';
+        state.selectedOutputId = '';
+      } else {
+        state.midiOutputs.forEach((output) => {
+          const opt = document.createElement('option');
+          opt.value = output.id;
+          opt.textContent = output.name || `MIDI Output ${output.id}`;
+          midiOutSelect.appendChild(opt);
+        });
+        if (!state.midiOutputs.some(o => o.id === state.selectedOutputId)) {
+          state.selectedOutputId = state.midiOutputs[0].id;
+        }
+        midiOutSelect.value = state.selectedOutputId;
+      }
+
+      bindSelectedMidiInput();
+      updateMidiStatusBadge();
+    }
+
+    function bindSelectedMidiInput() {
+      if (!state.midiAccess) return;
+      // Clear previous listeners
+      for (const input of state.midiAccess.inputs.values()) {
+        input.onmidimessage = null;
+      }
+      const activeInput = state.midiInputs.find(i => i.id === state.selectedInputId);
+      if (activeInput) {
+        activeInput.onmidimessage = handleIncomingMidiMessage;
+      }
+    }
+
+    function updateMidiStatusBadge() {
+      const inPort = state.midiInputs.find(i => i.id === state.selectedInputId);
+      const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
+
+      if (inPort && outPort) {
+        midiStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-600 shrink-0';
+        midiStatusLabel.textContent = outPort.name || inPort.name || 'Piano Connected';
+      } else if (inPort || outPort) {
+        midiStatusDot.className = 'w-2 h-2 rounded-full bg-amber-500 shrink-0';
+        midiStatusLabel.textContent = (outPort || inPort).name || 'Partial MIDI';
+      } else {
+        midiStatusDot.className = 'w-2 h-2 rounded-full bg-amber-500 shrink-0';
+        midiStatusLabel.textContent = 'Connect Piano';
+      }
+    }
+
+    // Push MIDI Note On directly to connected digital piano
+    function sendMidiNoteOn(pitch, velocity = 80, channel = 0) {
+      const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
+      if (outPort) {
+        try {
+          outPort.send([0x90 | (channel & 0x0F), pitch & 0x7F, Math.max(1, Math.min(127, velocity))]);
+        } catch (e) {
+          // Ignore transient disconnect errors
+        }
+      }
+      state.soundingOutNotes.set(pitch, { channel });
+    }
+
+    // Push MIDI Note Off directly to connected digital piano
+    function sendMidiNoteOff(pitch, channel = 0) {
+      const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
+      if (outPort) {
+        try {
+          outPort.send([0x80 | (channel & 0x0F), pitch & 0x7F, 0]);
+        } catch (e) {
+          // Ignore transient disconnect errors
+        }
+      }
+      state.soundingOutNotes.delete(pitch);
+    }
+
+    // Silence all sounding notes on the piano immediately
+    function stopAllMidiNotes() {
+      const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
+      for (const [pitch, info] of state.soundingOutNotes.entries()) {
+        if (outPort) {
+          try {
+            outPort.send([0x80 | (info.channel & 0x0F), pitch & 0x7F, 0]);
+          } catch (e) {}
+        }
+      }
+      state.soundingOutNotes.clear();
+
+      // Also send CC 123 (All Notes Off) on channel 0 for safety
+      if (outPort) {
+        try {
+          outPort.send([0xB0, 123, 0]);
+        } catch (e) {}
+      }
+    }
+
+    // Handle incoming key presses from the user's USB piano
+    function handleIncomingMidiMessage(event) {
+      const data = event.data;
+      if (!data || data.length < 2) return;
+
+      const status = data[0] & 0xF0;
+      const pitch = data[1] & 0x7F;
+      const velocity = data.length > 2 ? (data[2] & 0x7F) : 0;
+
+      if (status === 0x90 && velocity > 0) {
+        // Note On from piano keyboard
+        state.userHeldPitches.add(pitch);
+        if (state.mode === 'learn' && state.isPlaying && state.waitingForUser) {
+          state.stepFreshPresses.add(pitch);
+          evaluateLearnStep();
+        }
+      } else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
+        // Note Off from piano keyboard
+        state.userHeldPitches.delete(pitch);
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // 3. STANDARD MIDI FILE (.MID) BINARY PARSER
+    // --------------------------------------------------------------------------
+    function parseMidiFile(arrayBuffer, title = 'Loaded MIDI') {
+      const view = new DataView(arrayBuffer);
+      let offset = 0;
+
+      function readStr(len) {
+        let s = '';
+        for (let i = 0; i < len; i++) {
+          s += String.fromCharCode(view.getUint8(offset++));
+        }
+        return s;
+      }
+
+      function readUint32() {
+        const val = view.getUint32(offset, false);
+        offset += 4;
+        return val;
+      }
+
+      function readUint16() {
+        const val = view.getUint16(offset, false);
+        offset += 2;
+        return val;
+      }
+
+      function readVarLen(trackEnd) {
+        let value = 0;
+        while (offset < trackEnd) {
+          const b = view.getUint8(offset++);
+          value = (value << 7) | (b & 0x7F);
+          if ((b & 0x80) === 0) break;
+        }
+        return value;
+      }
+
+      if (readStr(4) !== 'MThd') {
+        throw new Error('Invalid MIDI file header.');
+      }
+
+      const headerLen = readUint32();
+      const format = readUint16();
+      const numTracks = readUint16();
+      const division = readUint16();
+      offset += Math.max(0, headerLen - 6);
+
+      const ticksPerQuarter = (division & 0x8000) ? 480 : division;
+
+      const rawEvents = [];
+      const tempoEvents = [{ tick: 0, microsecondsPerQuarter: 500000 }]; // Default 120 BPM
+      let timeSig = { numerator: 4, denominator: 4 };
+      let keySig = { sf: 0, mi: 0 };
+      let foundTrackName = '';
+
+      for (let t = 0; t < numTracks; t++) {
+        if (offset + 8 > view.byteLength) break;
+        const chunkType = readStr(4);
+        const chunkLen = readUint32();
+        const trackEnd = Math.min(view.byteLength, offset + chunkLen);
+
+        if (chunkType !== 'MTrk') {
+          offset = trackEnd;
+          continue;
+        }
+
+        let tick = 0;
+        let runningStatus = 0;
+
+        while (offset < trackEnd) {
+          const delta = readVarLen(trackEnd);
+          tick += delta;
+          if (offset >= trackEnd) break;
+
+          let statusByte = view.getUint8(offset);
+          if (statusByte < 0x80) {
+            statusByte = runningStatus;
+          } else {
+            offset++;
+            if (statusByte < 0xF0) {
+              runningStatus = statusByte;
+            }
+          }
+
+          if (statusByte === 0xFF) {
+            // Meta event
+            if (offset >= trackEnd) break;
+            const metaType = view.getUint8(offset++);
+            const metaLen = readVarLen(trackEnd);
+            const metaEnd = Math.min(trackEnd, offset + metaLen);
+
+            if (metaType === 0x51 && metaLen === 3) {
+              const usPerQuarter = (view.getUint8(offset) << 16) |
+                                   (view.getUint8(offset + 1) << 8) |
+                                   view.getUint8(offset + 2);
+              tempoEvents.push({ tick, microsecondsPerQuarter: usPerQuarter });
+            } else if (metaType === 0x58 && metaLen >= 2) {
+              timeSig = {
+                numerator: view.getUint8(offset),
+                denominator: Math.pow(2, view.getUint8(offset + 1))
+              };
+            } else if (metaType === 0x59 && metaLen >= 2) {
+              keySig = {
+                sf: view.getInt8(offset),
+                mi: view.getUint8(offset + 1)
+              };
+            } else if (metaType === 0x03 && !foundTrackName && metaLen > 0) {
+              let name = '';
+              for (let i = 0; i < metaLen && (offset + i) < metaEnd; i++) {
+                const c = view.getUint8(offset + i);
+                if (c >= 32 && c < 127) name += String.fromCharCode(c);
+              }
+              if (name.trim()) foundTrackName = name.trim();
+            }
+
+            offset = metaEnd;
+          } else if (statusByte === 0xF0 || statusByte === 0xF7) {
+            // SysEx event
+            const sysLen = readVarLen(trackEnd);
+            offset = Math.min(trackEnd, offset + sysLen);
+          } else {
+            // Channel event
+            const cmd = statusByte & 0xF0;
+            const channel = statusByte & 0x0F;
+
+            if (cmd === 0xC0 || cmd === 0xD0) {
+              offset = Math.min(trackEnd, offset + 1);
+            } else {
+              if (offset + 1 >= trackEnd) break;
+              const d1 = view.getUint8(offset++);
+              const d2 = view.getUint8(offset++);
+
+              // Skip GM percussion channel 10 (index 9) so drum hits don't clutter sheet music
+              if (channel !== 9) {
+                if (cmd === 0x90 && d2 > 0) {
+                  rawEvents.push({ type: 'on', tick, pitch: d1, velocity: d2, channel });
+                } else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) {
+                  rawEvents.push({ type: 'off', tick, pitch: d1, velocity: 0, channel });
+                }
+              }
+            }
+          }
+        }
+        offset = trackEnd;
+      }
+
+      // Sort raw events chronologically (Note Off before Note On at identical tick)
+      rawEvents.sort((a, b) => {
+        if (a.tick !== b.tick) return a.tick - b.tick;
+        if (a.type === b.type) return a.pitch - b.pitch;
+        return a.type === 'off' ? -1 : 1;
+      });
+
+      // Pair Note On with matching Note Off to construct clean note objects
+      const openNotes = new Map(); // key: `${channel}_${pitch}` -> Array of active Note On events
+      const notes = [];
+
+      for (const ev of rawEvents) {
+        const key = `${ev.channel}_${ev.pitch}`;
+        if (ev.type === 'on') {
+          if (!openNotes.has(key)) openNotes.set(key, []);
+          openNotes.get(key).push(ev);
+        } else if (ev.type === 'off') {
+          const stack = openNotes.get(key);
+          if (stack && stack.length > 0) {
+            const onEv = stack.shift();
+            const durationTicks = Math.max(Math.round(ticksPerQuarter / 8), ev.tick - onEv.tick);
+            notes.push({
+              pitch: onEv.pitch,
+              velocity: onEv.velocity,
+              channel: onEv.channel,
+              startTick: onEv.tick,
+              endTick: onEv.tick + durationTicks,
+              durationTicks
+            });
+          }
+        }
+      }
+
+      // Close any dangling notes
+      for (const stack of openNotes.values()) {
+        for (const onEv of stack) {
+          notes.push({
+            pitch: onEv.pitch,
+            velocity: onEv.velocity,
+            channel: onEv.channel,
+            startTick: onEv.tick,
+            endTick: onEv.tick + ticksPerQuarter,
+            durationTicks: ticksPerQuarter
+          });
+        }
+      }
+
+      notes.sort((a, b) => {
+        if (a.startTick !== b.startTick) return a.startTick - b.startTick;
+        return a.pitch - b.pitch;
+      });
+
+      // Clean tempo map
+      tempoEvents.sort((a, b) => a.tick - b.tick);
+      const cleanTempos = [];
+      for (const t of tempoEvents) {
+        if (cleanTempos.length > 0 && cleanTempos[cleanTempos.length - 1].tick === t.tick) {
+          cleanTempos[cleanTempos.length - 1] = t;
+        } else {
+          cleanTempos.push(t);
+        }
+      }
+
+      const lastNoteEndTick = notes.reduce((max, n) => Math.max(max, n.endTick), ticksPerQuarter * 4);
+      const ticksPerMeasure = Math.round(ticksPerQuarter * (4 / timeSig.denominator) * timeSig.numerator);
+      const totalMeasures = Math.ceil(lastNoteEndTick / ticksPerMeasure) + 1;
+      const totalTicks = totalMeasures * ticksPerMeasure;
+
+      return {
+        title: title || foundTrackName || 'MIDI Piece',
+        ticksPerQuarter,
+        ticksPerMeasure,
+        totalTicks,
+        totalMeasures,
+        timeSig,
+        keySig,
+        tempos: cleanTempos,
+        notes
+      };
+    }
+
+    // Build sequential chord/note steps for Learning Mode
+    function buildLearnSteps(song) {
+      if (!song || !song.notes.length) return [];
+      const toleranceTicks = Math.max(10, Math.round(song.ticksPerQuarter / 24)); // ~20ms tolerance for chords
+      const steps = [];
+
+      for (const note of song.notes) {
+        const lastStep = steps[steps.length - 1];
+        if (lastStep && Math.abs(note.startTick - lastStep.tick) <= toleranceTicks) {
+          lastStep.notes.push(note);
+          lastStep.requiredPitches.add(note.pitch);
+        } else {
+          steps.push({
+            tick: note.startTick,
+            notes: [note],
+            requiredPitches: new Set([note.pitch])
+          });
+        }
+      }
+      return steps;
+    }
+
+    // --------------------------------------------------------------------------
+    // 4. BUILT-IN CLASSICAL DEMO PIECE (BACH PRELUDE IN C MAJOR, BWV 846)
+    // --------------------------------------------------------------------------
+    function createDemoBachMidiBuffer() {
+      const tpq = 480;
+      const sixteenth = tpq / 4; // 120 ticks
+
+      // First 8 measures of J.S. Bach's Prelude in C Major (BWV 846)
+      // Each measure repeats the classic 8-note broken chord pattern twice
+      const measures = [
+        [60, 64, 67, 72, 76, 67, 72, 76], // C major
+        [60, 62, 69, 74, 77, 69, 74, 77], // Dm7 / C
+        [59, 62, 67, 74, 77, 67, 74, 77], // G7 / B
+        [60, 64, 67, 72, 76, 67, 72, 76], // C major
+        [60, 64, 69, 76, 81, 69, 76, 81], // Am / C
+        [60, 62, 66, 69, 74, 66, 69, 74], // D7 / C
+        [59, 62, 67, 74, 79, 67, 74, 79], // G / B
+        [59, 60, 64, 67, 72, 64, 67, 72]  // Cmaj7 / B
+      ];
+
+      const events = [];
+      let tick = 0;
+
+      // Set Tempo: ~84 BPM (714285 us per quarter)
+      events.push({ tick: 0, bytes: [0xFF, 0x51, 0x03, 0x0A, 0xE6, 0x2D] });
+      // Time Sig: 4/4
+      events.push({ tick: 0, bytes: [0xFF, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08] });
+
+      for (const pattern of measures) {
+        for (let rep = 0; rep < 2; rep++) {
+          const baseTick = tick;
+          // Sustained bass notes (1st and 2nd note of pattern hold for half bar)
+          events.push({ tick: baseTick, bytes: [0x90, pattern[0], 72] });
+          events.push({ tick: baseTick + sixteenth * 8, bytes: [0x80, pattern[0], 0] });
+
+          events.push({ tick: baseTick + sixteenth, bytes: [0x90, pattern[1], 68] });
+          events.push({ tick: baseTick + sixteenth * 8, bytes: [0x80, pattern[1], 0] });
+
+          // Upper arpeggio notes
+          for (let i = 2; i < 8; i++) {
+            const onT = baseTick + i * sixteenth;
+            const offT = onT + Math.round(sixteenth * 0.92);
+            events.push({ tick: onT, bytes: [0x90, pattern[i], 76] });
+            events.push({ tick: offT, bytes: [0x80, pattern[i], 0] });
+          }
+          tick += sixteenth * 8;
+        }
+      }
+
+      // Final resolved C major chord (whole bar)
+      const finalChord = [48, 60, 64, 67, 72];
+      for (const p of finalChord) {
+        events.push({ tick, bytes: [0x90, p, 78] });
+        events.push({ tick: tick + tpq * 4, bytes: [0x80, p, 0] });
+      }
+      tick += tpq * 4;
+      events.push({ tick, bytes: [0xFF, 0x2F, 0x00] });
+
+      events.sort((a, b) => a.tick - b.tick);
+
+      // Encode variable length quantities into track byte array
+      const trackBytes = [];
+      let prevTick = 0;
+      for (const ev of events) {
+        let delta = ev.tick - prevTick;
+        prevTick = ev.tick;
+
+        const vlq = [];
+        vlq.push(delta & 0x7F);
+        delta >>= 7;
+        while (delta > 0) {
+          vlq.unshift((delta & 0x7F) | 0x80);
+          delta >>= 7;
+        }
+        trackBytes.push(...vlq, ...ev.bytes);
+      }
+
+      const totalLen = 14 + 8 + trackBytes.length;
+      const buf = new ArrayBuffer(totalLen);
+      const view = new DataView(buf);
+      let pos = 0;
+
+      // MThd
+      [0x4D, 0x54, 0x68, 0x64].forEach(b => view.setUint8(pos++, b));
+      view.setUint32(pos, 6); pos += 4;
+      view.setUint16(pos, 0); pos += 2; // Format 0
+      view.setUint16(pos, 1); pos += 2; // 1 Track
+      view.setUint16(pos, tpq); pos += 2;
+
+      // MTrk
+      [0x4D, 0x54, 0x72, 0x6B].forEach(b => view.setUint8(pos++, b));
+      view.setUint32(pos, trackBytes.length); pos += 4;
+      for (const b of trackBytes) {
+        view.setUint8(pos++, b);
+      }
+
+      return buf;
+    }
+
+    // --------------------------------------------------------------------------
+    // 5. PLAYBACK & LEARNING MODE ENGINE
+    // --------------------------------------------------------------------------
+    function getMicrosecondsPerQuarterAtTick(tick) {
+      if (!state.song || !state.song.tempos.length) return 500000;
+      let current = state.song.tempos[0].microsecondsPerQuarter;
+      for (const t of state.song.tempos) {
+        if (t.tick <= tick) {
+          current = t.microsecondsPerQuarter;
+        } else {
+          break;
+        }
+      }
+      return current;
+    }
+
+    function setPlaying(shouldPlay) {
+      if (!state.song) return;
+
+      if (shouldPlay) {
+        if (state.currentTick >= state.song.totalTicks - 10) {
+          resetToStart();
+        }
+        state.isPlaying = true;
+        state.lastFrameTime = performance.now();
+
+        if (state.mode === 'learn') {
+          syncLearnStepToCurrentTick();
+        }
+      } else {
+        state.isPlaying = false;
+        state.lastFrameTime = null;
+        stopAllMidiNotes();
+      }
+      updatePlayButtonUI();
+    }
+
+    function resetToStart() {
+      stopAllMidiNotes();
+      state.currentTick = 0;
+      state.currentStepIndex = 0;
+      state.waitingForUser = false;
+      state.stepFreshPresses.clear();
+      if (state.mode === 'learn' && state.isPlaying) {
+        syncLearnStepToCurrentTick();
+      }
+    }
+
+    function syncLearnStepToCurrentTick() {
+      if (!state.learnSteps.length) {
+        state.waitingForUser = false;
+        return;
+      }
+      // Find the first step at or ahead of currentTick (with small tolerance)
+      let idx = state.learnSteps.findIndex(s => s.tick >= state.currentTick - 5);
+      if (idx === -1) {
+        idx = state.learnSteps.length;
+      }
+      state.currentStepIndex = idx;
+      state.waitingForUser = false;
+      state.stepFreshPresses.clear();
+    }
+
+    function evaluateLearnStep() {
+      if (state.mode !== 'learn' || !state.isPlaying || !state.waitingForUser) return;
+      const step = state.learnSteps[state.currentStepIndex];
+      if (!step) return;
+
+      // Verify all required notes in this chord/step are currently held AND freshly pressed
+      let allMatched = true;
+      for (const reqPitch of step.requiredPitches) {
+        if (!state.userHeldPitches.has(reqPitch) || !state.stepFreshPresses.has(reqPitch)) {
+          allMatched = false;
+          break;
+        }
+      }
+
+      if (allMatched) {
+        // Advance to next step
+        state.currentStepIndex++;
+        state.waitingForUser = false;
+        state.stepFreshPresses.clear();
+
+        if (state.currentStepIndex >= state.learnSteps.length) {
+          // Reached end of piece
+          state.currentTick = state.song.totalTicks;
+          setPlaying(false);
+          showToast('Piece completed');
+        }
+      }
+    }
+
+    function updateSimulation(now) {
+      if (!state.song) return;
+
+      if (!state.isPlaying || state.isDragging) {
+        state.lastFrameTime = now;
+        return;
+      }
+
+      const dtMs = Math.min(100, now - (state.lastFrameTime || now));
+      state.lastFrameTime = now;
+
+      const usPerQuarter = getMicrosecondsPerQuarterAtTick(state.currentTick);
+      const msPerQuarter = usPerQuarter / 1000;
+      const ticksPerMs = state.song.ticksPerQuarter / msPerQuarter;
+      const deltaTicks = dtMs * ticksPerMs * state.speed;
+
+      if (state.mode === 'play') {
+        const prevTick = state.currentTick;
+        const nextTick = Math.min(state.song.totalTicks, prevTick + deltaTicks);
+
+        // Trigger MIDI Note On / Note Off for notes crossed between prevTick and nextTick
+        for (const note of state.song.notes) {
+          if (note.startTick >= prevTick && note.startTick < nextTick) {
+            // Re-trigger cleanly if already sounding
+            if (state.soundingOutNotes.has(note.pitch)) {
+              sendMidiNoteOff(note.pitch, note.channel);
+            }
+            sendMidiNoteOn(note.pitch, note.velocity, note.channel);
+          }
+          if (note.endTick > prevTick && note.endTick <= nextTick) {
+            if (state.soundingOutNotes.has(note.pitch)) {
+              sendMidiNoteOff(note.pitch, note.channel);
+            }
+          }
+        }
+
+        state.currentTick = nextTick;
+
+        if (state.currentTick >= state.song.totalTicks) {
+          setPlaying(false);
+        }
+      } else if (state.mode === 'learn') {
+        // Learning mode: glide playhead to currentStepIndex's tick and wait for piano input
+        const targetStep = state.learnSteps[state.currentStepIndex];
+        if (!targetStep) {
+          setPlaying(false);
+          return;
+        }
+
+        if (!state.waitingForUser) {
+          const nextTick = state.currentTick + Math.max(deltaTicks, dtMs * 0.45);
+          if (nextTick >= targetStep.tick) {
+            state.currentTick = targetStep.tick;
+            state.waitingForUser = true;
+            state.stepFreshPresses.clear();
+            // Check immediately in case user already pressed right as playhead arrived
+            for (const p of state.userHeldPitches) {
+              state.stepFreshPresses.add(p);
+            }
+            evaluateLearnStep();
+          } else {
+            state.currentTick = nextTick;
+          }
+        }
+      }
+    }
+
+    // --------------------------------------------------------------------------
+    // 6. CLASSICAL ENGRAVED SHEET MUSIC RENDERER (GRAND STAFF)
+    // --------------------------------------------------------------------------
+    // Map MIDI pitch (0-127) to diatonic staff step & accidental
+    // Use flat spellings when key signature has flats (keySig.sf < 0), otherwise sharps
+    const SHARP_MAP = [
+      { step: 0, acc: '' },  // C
+      { step: 0, acc: '♯' }, // C#
+      { step: 1, acc: '' },  // D
+      { step: 1, acc: '♯' }, // D#
+      { step: 2, acc: '' },  // E
+      { step: 3, acc: '' },  // F
+      { step: 3, acc: '♯' }, // F#
+      { step: 4, acc: '' },  // G
+      { step: 4, acc: '♯' }, // G#
+      { step: 5, acc: '' },  // A
+      { step: 5, acc: '♯' }, // A#
+      { step: 6, acc: '' }   // B
+    ];
+
+    const FLAT_MAP = [
+      { step: 0, acc: '' },  // C
+      { step: 1, acc: '♭' }, // Db
+      { step: 1, acc: '' },  // D
+      { step: 2, acc: '♭' }, // Eb
+      { step: 2, acc: '' },  // E
+      { step: 3, acc: '' },  // F
+      { step: 4, acc: '♭' }, // Gb
+      { step: 4, acc: '' },  // G
+      { step: 5, acc: '♭' }, // Ab
+      { step: 5, acc: '' },  // A
+      { step: 6, acc: '♭' }, // Bb
+      { step: 6, acc: '' }   // B
+    ];
+
+    function pitchToDiatonic(pitch, useFlats = false) {
+      const octave = Math.floor(pitch / 12) - 1;
+      const semitone = pitch % 12;
+      const info = useFlats ? FLAT_MAP[semitone] : SHARP_MAP[semitone];
+      return {
+        diatonicStep: octave * 7 + info.step, // C4 = 4*7 + 0 = 28
+        accidental: info.acc
+      };
+    }
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const rect = container.getBoundingClientRect();
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // Draw crisp calligraphic Treble Clef (G clef)
+    function drawTrebleClef(ctx, x, trebleBottomY, lineSpacing) {
+      ctx.save();
+      ctx.fillStyle = '#1C1917';
+      ctx.font = `${Math.round(lineSpacing * 7.4)}px "Times New Roman", "Apple Symbols", "Bravura", Georgia, serif`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('\uD834\uDD1E', x, trebleBottomY + lineSpacing * 1.45);
+      ctx.restore();
+    }
+
+    // Draw crisp calligraphic Bass Clef (F clef)
+    function drawBassClef(ctx, x, bassTopY, lineSpacing) {
+      ctx.save();
+      ctx.fillStyle = '#1C1917';
+      ctx.font = `${Math.round(lineSpacing * 4.5)}px "Times New Roman", "Apple Symbols", "Bravura", Georgia, serif`;
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('\uD834\uDD22', x, bassTopY + lineSpacing * 3.35);
+      ctx.restore();
+    }
+
+    // Draw Grand Staff Curly Brace on left edge
+    function drawGrandBrace(ctx, x, topY, bottomY) {
+      const midY = (topY + bottomY) / 2;
+      const h = bottomY - topY;
+      ctx.save();
+      ctx.fillStyle = '#1C1917';
+      ctx.beginPath();
+      ctx.moveTo(x + 8, topY);
+      ctx.bezierCurveTo(x - 4, topY + h * 0.08, x + 4, midY - h * 0.08, x - 6, midY);
+      ctx.bezierCurveTo(x + 4, midY + h * 0.08, x - 4, bottomY - h * 0.08, x + 8, bottomY);
+      ctx.bezierCurveTo(x, bottomY - h * 0.08, x + 7, midY + h * 0.08, x - 2, midY);
+      ctx.bezierCurveTo(x + 7, midY - h * 0.08, x, topY + h * 0.08, x + 8, topY);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function renderSheetMusic() {
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (!width || !height) return;
+
+      // 1. Warm Archival Sheet Paper Background
+      ctx.fillStyle = '#F9F5EB';
+      ctx.fillRect(0, 0, width, height);
+
+      // Subtle paper grain / vignette border
+      const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.2, width / 2, height / 2, Math.max(width, height) * 0.8);
+      grad.addColorStop(0, 'rgba(255, 252, 245, 0.35)');
+      grad.addColorStop(1, 'rgba(222, 212, 192, 0.35)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      if (!state.song) return;
+
+      // Responsive staff proportions
+      const lineSpacing = Math.max(10, Math.min(15, Math.floor(height / 28)));
+      const halfStep = lineSpacing / 2;
+      const staffHeight = lineSpacing * 4;
+      const staffGap = Math.max(lineSpacing * 5.2, Math.min(height * 0.22, lineSpacing * 7.5));
+      const totalGrandHeight = staffHeight * 2 + staffGap;
+
+      const trebleTopY = Math.max(46, Math.floor((height - totalGrandHeight) / 2));
+      const trebleBottomY = trebleTopY + staffHeight;
+      const bassTopY = trebleBottomY + staffGap;
+      const bassBottomY = bassTopY + staffHeight;
+
+      // Pinned Left Clef Header Width
+      const clefHeaderWidth = width < 520 ? 78 : 96;
+      // Playhead screen X position (around 27% across screen for generous lookahead)
+      const playheadScreenX = Math.max(clefHeaderWidth + 46, Math.floor(width * 0.27));
+
+      const pxPerTick = state.pxPerQuarter / state.song.ticksPerQuarter;
+      const scrollOffsetX = playheadScreenX - state.currentTick * pxPerTick;
+
+      // Helper: convert diatonicStep to Y coordinate on Treble or Bass staff
+      // Treble bottom line = E4 (diatonicStep 30)
+      // Bass bottom line = G2 (diatonicStep 18)
+      function getNoteY(diatonicStep, isTreble) {
+        if (isTreble) {
+          return trebleBottomY - (diatonicStep - 30) * halfStep;
+        } else {
+          return bassBottomY - (diatonicStep - 18) * halfStep;
+        }
+      }
+
+      // 2. Draw Continuous 5-Line Grand Staff across entire width
+      ctx.strokeStyle = '#3B3632';
+      ctx.lineWidth = 1.15;
+      for (let i = 0; i < 5; i++) {
+        const ty = trebleTopY + i * lineSpacing;
+        ctx.beginPath();
+        ctx.moveTo(16, ty);
+        ctx.lineTo(width, ty);
+        ctx.stroke();
+
+        const by = bassTopY + i * lineSpacing;
+        ctx.beginPath();
+        ctx.moveTo(16, by);
+        ctx.lineTo(width, by);
+        ctx.stroke();
+      }
+
+      // 3. Draw Measure Bar Lines & Measure Numbers
+      const firstVisibleTick = Math.max(0, (clefHeaderWidth - scrollOffsetX) / pxPerTick - state.song.ticksPerMeasure);
+      const lastVisibleTick = (width - scrollOffsetX) / pxPerTick + state.song.ticksPerMeasure;
+      const firstMeasure = Math.max(0, Math.floor(firstVisibleTick / state.song.ticksPerMeasure));
+      const lastMeasure = Math.min(state.song.totalMeasures, Math.ceil(lastVisibleTick / state.song.ticksPerMeasure));
+
+      ctx.font = `italic ${Math.max(11, Math.round(lineSpacing * 0.95))}px "Crimson Pro", Georgia, serif`;
+      ctx.fillStyle = '#78716C';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+
+      for (let m = firstMeasure; m <= lastMeasure; m++) {
+        const mTick = m * state.song.ticksPerMeasure;
+        const mx = scrollOffsetX + mTick * pxPerTick;
+        if (mx < clefHeaderWidth - 10 || mx > width + 20) continue;
+
+        ctx.strokeStyle = '#44403C';
+        ctx.lineWidth = (m === state.song.totalMeasures) ? 2.5 : 1.2;
+        ctx.beginPath();
+        ctx.moveTo(mx, trebleTopY);
+        ctx.lineTo(mx, bassBottomY);
+        ctx.stroke();
+
+        // Double final barline
+        if (m === state.song.totalMeasures) {
+          ctx.lineWidth = 1.1;
+          ctx.beginPath();
+          ctx.moveTo(mx - 4.5, trebleTopY);
+          ctx.lineTo(mx - 4.5, bassBottomY);
+          ctx.stroke();
+        } else {
+          ctx.fillText(String(m + 1), mx + 5, trebleTopY - 6);
+        }
+      }
+
+      // 4. Identify Active Target Step in Learning Mode
+      const activeLearnStep = (state.mode === 'learn' && state.currentStepIndex < state.learnSteps.length)
+        ? state.learnSteps[state.currentStepIndex]
+        : null;
+
+      // 5. Group visible notes by startTick for clean stem sharing & second-interval chord offsets
+      const useFlats = state.song.keySig.sf < 0;
+      const visibleNotes = state.song.notes.filter(
+        n => n.endTick >= firstVisibleTick && n.startTick <= lastVisibleTick
+      );
+
+      // Group notes at identical startTick
+      const chordGroups = [];
+      for (const note of visibleNotes) {
+        const lastGroup = chordGroups[chordGroups.length - 1];
+        if (lastGroup && Math.abs(lastGroup.tick - note.startTick) <= 4) {
+          lastGroup.notes.push(note);
+        } else {
+          chordGroups.push({ tick: note.startTick, notes: [note] });
+        }
+      }
+
+      const rx = lineSpacing * 0.56;
+      const ry = lineSpacing * 0.42;
+
+      for (const group of chordGroups) {
+        const baseX = scrollOffsetX + group.tick * pxPerTick;
+
+        // Split group into Treble (>= C4 / MIDI 60) and Bass (< C4 / MIDI 60)
+        const trebleNotes = [];
+        const bassNotes = [];
+
+        for (const note of group.notes) {
+          const info = pitchToDiatonic(note.pitch, useFlats);
+          const item = { note, ...info };
+          if (note.pitch >= 60) {
+            trebleNotes.push(item);
+          } else {
+            bassNotes.push(item);
+          }
+        }
+
+        // Render each staff cluster (Treble & Bass)
+        for (const [isTreble, cluster] of [[true, trebleNotes], [false, bassNotes]]) {
+          if (!cluster.length) continue;
+
+          cluster.sort((a, b) => a.diatonicStep - b.diatonicStep);
+
+          // Determine stem direction for this cluster
+          const avgStep = cluster.reduce((s, c) => s + c.diatonicStep, 0) / cluster.length;
+          const stemUp = isTreble ? (avgStep < 34) : (avgStep < 22);
+
+          // Offset adjacent 2nds horizontally so noteheads never overlap
+          let prevStep = null;
+          let prevOffset = false;
+          for (const item of cluster) {
+            if (prevStep !== null && (item.diatonicStep - prevStep) === 1 && !prevOffset) {
+              item.headOffsetX = stemUp ? rx * 1.85 : -rx * 1.85;
+              prevOffset = true;
+            } else {
+              item.headOffsetX = 0;
+              prevOffset = false;
+            }
+            prevStep = item.diatonicStep;
+          }
+
+          // Determine shared stem endpoints for non-whole notes in cluster
+          const stemmedItems = cluster.filter(it => (it.note.durationTicks / state.song.ticksPerQuarter) < 3.0);
+          if (stemmedItems.length > 0) {
+            const stemX = stemUp ? (baseX + rx * 0.88) : (baseX - rx * 0.88);
+            const lowestY = getNoteY(stemmedItems[0].diatonicStep, isTreble);
+            const highestY = getNoteY(stemmedItems[stemmedItems.length - 1].diatonicStep, isTreble);
+            const stemLen = lineSpacing * 3.1;
+
+            const stemStartY = stemUp ? lowestY : highestY;
+            const stemEndY = stemUp ? (highestY - stemLen) : (lowestY + stemLen);
+
+            // Color stem if any note in cluster is active
+            const anyActive = stemmedItems.some(it => isNoteActive(it.note, activeLearnStep));
+            ctx.strokeStyle = anyActive ? '#B45309' : '#1C1917';
+            ctx.lineWidth = 1.45;
+            ctx.beginPath();
+            ctx.moveTo(stemX, stemStartY);
+            ctx.lineTo(stemX, stemEndY);
+            ctx.stroke();
+
+            // Draw eighth / sixteenth flag on shortest note in cluster
+            const minBeats = Math.min(...stemmedItems.map(it => it.note.durationTicks / state.song.ticksPerQuarter));
+            if (minBeats < 0.75) {
+              drawFlag(ctx, stemX, stemEndY, stemUp, lineSpacing, minBeats < 0.375);
+            }
+          }
+
+          // Draw Ledger Lines, Accidentals & Noteheads for each note
+          for (const item of cluster) {
+            const nx = baseX + item.headOffsetX;
+            const ny = getNoteY(item.diatonicStep, isTreble);
+            const beats = item.note.durationTicks / state.song.ticksPerQuarter;
+            const isOpenHead = beats >= 1.5;
+
+            // Determine visual highlight color
+            let fillColor = '#1C1917';
+            let strokeColor = '#1C1917';
+            let glow = false;
+
+            if (state.mode === 'learn' && activeLearnStep && activeLearnStep.notes.includes(item.note)) {
+              glow = true;
+              if (state.userHeldPitches.has(item.note.pitch) && state.stepFreshPresses.has(item.note.pitch)) {
+                fillColor = '#15803D';   // Matched green!
+                strokeColor = '#15803D';
+              } else {
+                fillColor = '#D97706';   // Waiting target amber!
+                strokeColor = '#B45309';
+              }
+            } else if (state.mode === 'play' && state.currentTick >= item.note.startTick && state.currentTick <= item.note.endTick) {
+              glow = true;
+              fillColor = '#B91C1C';     // Active playhead crimson
+              strokeColor = '#991B1B';
+            }
+
+            // Ledger lines
+            drawLedgerLines(ctx, nx, item.diatonicStep, isTreble, trebleTopY, trebleBottomY, bassTopY, bassBottomY, halfStep, rx);
+
+            // Accidental (♯ / ♭)
+            if (item.accidental) {
+              ctx.save();
+              ctx.fillStyle = fillColor;
+              ctx.font = `600 ${Math.round(lineSpacing * 1.55)}px "Times New Roman", Georgia, serif`;
+              ctx.textAlign = 'right';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(item.accidental, baseX - rx * 1.25, ny + 1);
+              ctx.restore();
+            }
+
+            // Subtle highlight halo for active notes
+            if (glow) {
+              ctx.save();
+              ctx.fillStyle = fillColor === '#15803D'
+                ? 'rgba(21, 128, 61, 0.18)'
+                : 'rgba(217, 119, 6, 0.22)';
+              ctx.beginPath();
+              ctx.arc(nx, ny, lineSpacing * 0.95, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            }
+
+            // Tilted Classic Oval Notehead
+            ctx.save();
+            ctx.translate(nx, ny);
+            ctx.rotate(-0.32);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+
+            if (isOpenHead) {
+              ctx.fillStyle = '#F9F5EB';
+              ctx.fill();
+              ctx.lineWidth = 2.0;
+              ctx.strokeStyle = strokeColor;
+              ctx.stroke();
+            } else {
+              ctx.fillStyle = fillColor;
+              ctx.fill();
+            }
+            ctx.restore();
+
+            // Augmentation dot for dotted half or dotted quarter
+            const isDotted = (beats >= 2.6 && beats < 3.5) || (beats >= 1.3 && beats < 1.75);
+            if (isDotted) {
+              ctx.fillStyle = fillColor;
+              ctx.beginPath();
+              ctx.arc(nx + rx * 1.55, ny - (item.diatonicStep % 2 === 0 ? halfStep * 0.35 : 0), 2.1, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      }
+
+      // 6. Draw Real-Time Feedback on the Staff for Keys Currently Pressed by User on USB Piano
+      if (state.userHeldPitches.size > 0) {
+        for (const pitch of state.userHeldPitches) {
+          const isTarget = activeLearnStep && activeLearnStep.requiredPitches.has(pitch);
+          const info = pitchToDiatonic(pitch, useFlats);
+          const isTreble = pitch >= 60;
+          const ny = getNoteY(info.diatonicStep, isTreble);
+
+          drawLedgerLines(ctx, playheadScreenX, info.diatonicStep, isTreble, trebleTopY, trebleBottomY, bassTopY, bassBottomY, halfStep, rx);
+
+          ctx.save();
+          ctx.translate(playheadScreenX, ny);
+          ctx.rotate(-0.32);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rx * 0.95, ry * 0.95, 0, 0, Math.PI * 2);
+          ctx.fillStyle = isTarget ? 'rgba(21, 128, 61, 0.85)' : 'rgba(220, 38, 38, 0.78)';
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // 7. Draw Smooth Playhead Cursor
+      ctx.save();
+      ctx.strokeStyle = state.waitingForUser ? '#D97706' : '#B91C1C';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(playheadScreenX, trebleTopY - 18);
+      ctx.lineTo(playheadScreenX, bassBottomY + 18);
+      ctx.stroke();
+
+      // Small classic diamond/triangle playhead cap at top
+      ctx.fillStyle = state.waitingForUser ? '#D97706' : '#B91C1C';
+      ctx.beginPath();
+      ctx.moveTo(playheadScreenX - 5, trebleTopY - 22);
+      ctx.lineTo(playheadScreenX + 5, trebleTopY - 22);
+      ctx.lineTo(playheadScreenX, trebleTopY - 14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // 8. Draw Pinned Left Clef Header Paper Mask (so clefs & brace stay crisp while scrolling)
+      ctx.save();
+      ctx.fillStyle = '#F9F5EB';
+      ctx.fillRect(0, 0, clefHeaderWidth, height);
+
+      // Subtle vertical separator shadow
+      const edgeGrad = ctx.createLinearGradient(clefHeaderWidth - 6, 0, clefHeaderWidth + 6, 0);
+      edgeGrad.addColorStop(0, 'rgba(249, 245, 235, 1)');
+      edgeGrad.addColorStop(0.5, 'rgba(214, 203, 184, 0.45)');
+      edgeGrad.addColorStop(1, 'rgba(249, 245, 235, 0)');
+      ctx.fillStyle = edgeGrad;
+      ctx.fillRect(clefHeaderWidth - 6, 0, 12, height);
+
+      // Redraw staff lines inside clef header
+      ctx.strokeStyle = '#3B3632';
+      ctx.lineWidth = 1.15;
+      for (let i = 0; i < 5; i++) {
+        const ty = trebleTopY + i * lineSpacing;
+        ctx.beginPath();
+        ctx.moveTo(18, ty);
+        ctx.lineTo(clefHeaderWidth, ty);
+        ctx.stroke();
+
+        const by = bassTopY + i * lineSpacing;
+        ctx.beginPath();
+        ctx.moveTo(18, by);
+        ctx.lineTo(clefHeaderWidth, by);
+        ctx.stroke();
+      }
+
+      // Left connecting vertical line + Grand Brace
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(18, trebleTopY);
+      ctx.lineTo(18, bassBottomY);
+      ctx.stroke();
+
+      drawGrandBrace(ctx, 13, trebleTopY, bassBottomY);
+      drawTrebleClef(ctx, 22, trebleBottomY, lineSpacing);
+      drawBassClef(ctx, 23, bassTopY, lineSpacing);
+
+      // Time signature numbers on both staves
+      ctx.fillStyle = '#1C1917';
+      ctx.font = `bold ${Math.round(lineSpacing * 2.0)}px "Crimson Pro", Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const tsX = clefHeaderWidth - 16;
+      ctx.fillText(String(state.song.timeSig.numerator), tsX, trebleTopY + lineSpacing * 1.0);
+      ctx.fillText(String(state.song.timeSig.denominator), tsX, trebleTopY + lineSpacing * 3.0);
+      ctx.fillText(String(state.song.timeSig.numerator), tsX, bassTopY + lineSpacing * 1.0);
+      ctx.fillText(String(state.song.timeSig.denominator), tsX, bassTopY + lineSpacing * 3.0);
+
+      ctx.restore();
+    }
+
+    function isNoteActive(note, activeLearnStep) {
+      if (state.mode === 'learn' && activeLearnStep) {
+        return activeLearnStep.notes.includes(note);
+      }
+      return state.mode === 'play' && state.currentTick >= note.startTick && state.currentTick <= note.endTick;
+    }
+
+    function drawFlag(ctx, stemX, stemEndY, stemUp, lineSpacing, isDouble) {
+      ctx.save();
+      ctx.strokeStyle = '#1C1917';
+      ctx.lineWidth = 1.8;
+      const dir = stemUp ? 1 : -1;
+      const count = isDouble ? 2 : 1;
+      for (let i = 0; i < count; i++) {
+        const yOff = i * lineSpacing * 0.55 * dir;
+        ctx.beginPath();
+        ctx.moveTo(stemX, stemEndY + yOff);
+        ctx.bezierCurveTo(
+          stemX + lineSpacing * 0.9,
+          stemEndY + yOff + lineSpacing * 0.5 * dir,
+          stemX + lineSpacing * 0.85,
+          stemEndY + yOff + lineSpacing * 1.35 * dir,
+          stemX + lineSpacing * 0.35,
+          stemEndY + yOff + lineSpacing * 1.8 * dir
+        );
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawLedgerLines(ctx, x, diatonicStep, isTreble, trebleTopY, trebleBottomY, bassTopY, bassBottomY, halfStep, rx) {
+      ctx.save();
+      ctx.strokeStyle = '#3B3632';
+      ctx.lineWidth = 1.15;
+      const halfWidth = rx * 1.65;
+
+      if (isTreble) {
+        // Below treble staff (E4 = 30; Middle C4 = 28)
+        for (let s = 28; s >= diatonicStep; s -= 2) {
+          const ly = trebleBottomY - (s - 30) * halfStep;
+          ctx.beginPath();
+          ctx.moveTo(x - halfWidth, ly);
+          ctx.lineTo(x + halfWidth, ly);
+          ctx.stroke();
+        }
+        // Above treble staff (F5 = 38; A5 = 40, C6 = 42...)
+        for (let s = 40; s <= diatonicStep; s += 2) {
+          const ly = trebleBottomY - (s - 30) * halfStep;
+          ctx.beginPath();
+          ctx.moveTo(x - halfWidth, ly);
+          ctx.lineTo(x + halfWidth, ly);
+          ctx.stroke();
+        }
+      } else {
+        // Below bass staff (G2 = 18; E2 = 16, C2 = 14...)
+        for (let s = 16; s >= diatonicStep; s -= 2) {
+          const ly = bassBottomY - (s - 18) * halfStep;
+          ctx.beginPath();
+          ctx.moveTo(x - halfWidth, ly);
+          ctx.lineTo(x + halfWidth, ly);
+          ctx.stroke();
+        }
+        // Above bass staff (A3 = 26; Middle C4 = 28...)
+        for (let s = 28; s <= diatonicStep; s += 2) {
+          const ly = bassBottomY - (s - 18) * halfStep;
+          ctx.beginPath();
+          ctx.moveTo(x - halfWidth, ly);
+          ctx.lineTo(x + halfWidth, ly);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    // --------------------------------------------------------------------------
+    // 7. UI EVENT LISTENERS & INTERACTION
+    // --------------------------------------------------------------------------
+    function updatePlayButtonUI() {
+      if (state.isPlaying) {
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+        playPauseLabel.textContent = 'Pause';
+        playPauseBtn.classList.remove('bg-emerald-800', 'hover:bg-emerald-700');
+        playPauseBtn.classList.add('bg-amber-700', 'hover:bg-amber-600');
+      } else {
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+        playPauseLabel.textContent = 'Play';
+        playPauseBtn.classList.remove('bg-amber-700', 'hover:bg-amber-600');
+        playPauseBtn.classList.add('bg-emerald-800', 'hover:bg-emerald-700');
+      }
+    }
+
+    function setMode(newMode) {
+      if (state.mode === newMode) return;
+      stopAllMidiNotes();
+      state.mode = newMode;
+
+      if (newMode === 'play') {
+        modePlayBtn.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs';
+        modeLearnBtn.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900';
+        state.waitingForUser = false;
+      } else {
+        modeLearnBtn.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs';
+        modePlayBtn.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900';
+        syncLearnStepToCurrentTick();
+      }
+    }
+
+    modePlayBtn.addEventListener('click', () => setMode('play'));
+    modeLearnBtn.addEventListener('click', () => setMode('learn'));
+
+    playPauseBtn.addEventListener('click', () => {
+      setPlaying(!state.isPlaying);
+    });
+
+    restartBtn.addEventListener('click', () => {
+      resetToStart();
+    });
+
+    // Speed buttons (1x, 1/2x, 1/4x)
+    speedBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = parseFloat(btn.dataset.speed);
+        state.speed = val;
+        speedBtns.forEach(b => {
+          b.className = 'speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900';
+        });
+        btn.className = 'speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs';
+      });
+    });
+
+    // Load MIDI File from iPad Files / Computer
+    midiFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      try {
+        setPlaying(false);
+        const buf = await file.arrayBuffer();
+        const cleanName = file.name.replace(/\.(mid|midi)$/i, '');
+        const parsed = parseMidiFile(buf, cleanName);
+
+        if (!parsed.notes.length) {
+          showToast('No playable notes found in MIDI');
+          return;
+        }
+
+        state.song = parsed;
+        state.learnSteps = buildLearnSteps(parsed);
+        pieceTitleEl.textContent = parsed.title;
+        resetToStart();
+        showToast(`Loaded: ${parsed.title}`);
+      } catch (err) {
+        showToast('Could not read MIDI file');
+      } finally {
+        midiFileInput.value = '';
+      }
+    });
+
+    // MIDI Port Popover Toggle
+    midiPortBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      midiPopover.classList.toggle('hidden');
+      if (!state.midiAccess) {
+        initWebMIDI();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!midiPopover.contains(e.target) && e.target !== midiPortBtn) {
+        midiPopover.classList.add('hidden');
+      }
+    });
+
+    midiInSelect.addEventListener('change', () => {
+      state.selectedInputId = midiInSelect.value;
+      bindSelectedMidiInput();
+      updateMidiStatusBadge();
+    });
+
+    midiOutSelect.addEventListener('change', () => {
+      stopAllMidiNotes();
+      state.selectedOutputId = midiOutSelect.value;
+      updateMidiStatusBadge();
+    });
+
+    // Touch & Mouse Horizontal Scrubbing on Sheet Music Canvas
+    function beginScrub(clientX) {
+      if (!state.song) return;
+      state.isDragging = true;
+      state.dragStartX = clientX;
+      state.dragStartTick = state.currentTick;
+      state.wasPlayingBeforeDrag = state.isPlaying;
+      stopAllMidiNotes();
+    }
+
+    function moveScrub(clientX) {
+      if (!state.isDragging || !state.song) return;
+      const dx = clientX - state.dragStartX;
+      const pxPerTick = state.pxPerQuarter / state.song.ticksPerQuarter;
+      const newTick = Math.max(0, Math.min(state.song.totalTicks, state.dragStartTick - dx / pxPerTick));
+      state.currentTick = newTick;
+      if (state.mode === 'learn') {
+        syncLearnStepToCurrentTick();
+      }
+    }
+
+    function endScrub() {
+      if (!state.isDragging) return;
+      state.isDragging = false;
+      state.lastFrameTime = performance.now();
+      if (state.mode === 'learn' && state.wasPlayingBeforeDrag) {
+        syncLearnStepToCurrentTick();
+      }
+    }
+
+    canvas.addEventListener('mousedown', (e) => beginScrub(e.clientX));
+    window.addEventListener('mousemove', (e) => moveScrub(e.clientX));
+    window.addEventListener('mouseup', endScrub);
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        beginScrub(e.touches[0].clientX);
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1) {
+        moveScrub(e.touches[0].clientX);
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', endScrub);
+    canvas.addEventListener('touchcancel', endScrub);
+
+    // Spacebar Play/Pause shortcut
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && document.activeElement.tagName !== 'BUTTON') {
+        e.preventDefault();
+        setPlaying(!state.isPlaying);
+      }
+    });
+
+    // Clean up MIDI notes on page close
+    window.addEventListener('beforeunload', () => {
+      stopAllMidiNotes();
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // --------------------------------------------------------------------------
+    // 8. INITIALIZATION & MAIN ANIMATION LOOP
+    // --------------------------------------------------------------------------
+    function mainLoop(now) {
+      updateSimulation(now);
+      renderSheetMusic();
+      requestAnimationFrame(mainLoop);
+    }
+
+    window.onload = function () {
+      resizeCanvas();
+
+      // Load built-in Bach Prelude demo so sheet music is ready immediately
+      const demoBuf = createDemoBachMidiBuffer();
+      const demoSong = parseMidiFile(demoBuf, 'Bach — Prelude in C Major');
+      state.song = demoSong;
+      state.learnSteps = buildLearnSteps(demoSong);
+
+      // Initialize USB MIDI ports
+      initWebMIDI();
+
+      requestAnimationFrame(mainLoop);
+    };
+  </script>
+</body>
+</html>
