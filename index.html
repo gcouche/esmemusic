@@ -48,8 +48,21 @@
         <input id="midiFileInput" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" class="hidden" />
       </label>
 
+      <!-- Library: built-in + hosted MIDI pieces -->
+      <div class="relative">
+        <button id="libraryBtn" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] hover:bg-white active:scale-[0.99] transition text-xs sm:text-sm font-medium text-stone-800 shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.1-1.34 2-3 2s-3-.9-3-2 1.34-2 3-2 3 .9 3 2zm12-3c0 1.1-1.34 2-3 2s-3-.9-3-2 1.34-2 3-2 3 .9 3 2z" />
+          </svg>
+          <span>Library</span>
+        </button>
+        <div id="libraryPopover" class="hidden absolute left-0 mt-2 w-80 max-w-[90vw] max-h-[65vh] overflow-y-auto p-2 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30">
+          <div id="libraryList"></div>
+        </div>
+      </div>
+
       <div class="hidden md:flex flex-col min-w-0 max-w-[200px] pl-1">
-        <span id="pieceTitle" class="text-sm font-semibold text-stone-800 truncate" style="font-family: 'Crimson Pro', Georgia, serif;">Bach — Prelude in C Major</span>
+        <span id="pieceTitle" class="text-sm font-semibold text-stone-800 truncate" style="font-family: 'Crimson Pro', Georgia, serif;">Fauré — Pavane</span>
       </div>
 
       <!-- USB MIDI Connection Button / Popover Trigger -->
@@ -112,7 +125,48 @@
       </div>
     </div>
 
-    <!-- Right: Speed Controls (1x, 1/2x, 1/4x) -->
+    <!-- Right: Settings + Speed Controls (1x, 1/2x, 1/4x) -->
+    <div class="flex items-center gap-2">
+      <div class="relative">
+        <button id="settingsBtn" type="button" title="Settings" aria-label="Settings" class="p-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] hover:bg-white active:scale-[0.99] text-stone-700 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+          </svg>
+        </button>
+        <div id="settingsPopover" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] p-4 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30 text-sm space-y-3">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Learn mode</p>
+
+          <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+            <span class="text-stone-800">Metronome</span>
+            <input id="setMetronome" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+          </label>
+
+          <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+            <span class="text-stone-800">Count-in (one bar)</span>
+            <input id="setCountIn" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+          </label>
+
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-stone-800">Late tolerance</span>
+              <span id="tolValue" class="font-semibold text-stone-800 tabular-nums">200 ms</span>
+            </div>
+            <input id="setTolerance" type="range" min="0" max="1000" step="25" value="200" class="w-full mt-2 accent-emerald-800" />
+            <p class="mt-1 text-[11px] leading-relaxed text-stone-500">
+              Playback only stops and waits for you once you are later than this. Smaller = stricter.
+            </p>
+          </div>
+
+          <hr class="border-[#DFD6C5]" />
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Display</p>
+
+          <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+            <span class="text-stone-800">Show keyboard</span>
+            <input id="setKeyboard" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+          </label>
+        </div>
+      </div>
+
     <div class="inline-flex p-0.5 rounded-lg bg-[#E5DEC9] border border-[#D6CBB8]" role="group" aria-label="Playback Speed">
       <button type="button" data-speed="1" class="speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs">
         1×
@@ -123,6 +177,7 @@
       <button type="button" data-speed="0.25" class="speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900">
         ¼×
       </button>
+    </div>
     </div>
 
   </header>
@@ -137,6 +192,11 @@
     </div>
   </main>
 
+  <!-- Keyboard visualisation (under the sheet music) -->
+  <section id="keyboardWrap" class="relative w-full shrink-0 border-t border-[#DFD6C5] bg-[#F2ECE0]" style="height: clamp(88px, 18dvh, 150px);">
+    <canvas id="keyboardCanvas"></canvas>
+  </section>
+
   <script>
     /**
      * ============================================================================
@@ -146,7 +206,8 @@
      * - Pushes MIDI Note On / Note Off back to connected digital piano output
      * - Parses Standard MIDI Files (.mid / .midi)
      * - Renders classic engraved Grand Staff sheet music with playhead tracking
-     * - Supports Play Mode (1x, 1/2x, 1/4x speed) & Learning Mode (step-wait)
+     * - Supports Play Mode (1x, 1/2x, 1/4x speed) & Learning Mode (metronome, late-tolerance wait)
+     * - Keyboard visualisation, built-in pieces and an online /midi library
      * ============================================================================
      */
 
@@ -189,8 +250,42 @@
       dragStartX: 0,
       dragStartTick: 0,
       wasPlayingBeforeDrag: false,
-      pxPerQuarter: 112        // Horizontal engraved spacing per quarter note
+      pxPerQuarter: 112,       // Horizontal engraved spacing per quarter note
+
+      // Metronome / count-in
+      audioCtx: null,
+      nextBeatTick: 0,         // Next beat (in ticks) that has not been clicked yet
+      countIn: null,           // { startMs, beatMs, beats, endMs } while counting in
+      matchedHeld: new Set(),  // Pitches just matched in learn mode that are still held down
+
+      // Keyboard visualisation
+      kbRange: { lo: 36, hi: 96 },
+
+      // Library
+      currentLibraryId: null
     };
+
+    // User settings (persisted in the browser)
+    const DEFAULT_SETTINGS = {
+      metronome: true,
+      countIn: true,
+      toleranceMs: 200,
+      showKeyboard: true
+    };
+    function loadSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('midiTrainerSettings') || '{}');
+        return { ...DEFAULT_SETTINGS, ...saved };
+      } catch (e) {
+        return { ...DEFAULT_SETTINGS };
+      }
+    }
+    function saveSettings() {
+      try {
+        localStorage.setItem('midiTrainerSettings', JSON.stringify(state.settings));
+      } catch (e) {}
+    }
+    state.settings = loadSettings();
 
     // DOM References
     const canvas = document.getElementById('sheetCanvas');
@@ -214,6 +309,19 @@
     const restartBtn = document.getElementById('restartBtn');
     const speedBtns = document.querySelectorAll('.speed-btn');
     const statusToast = document.getElementById('statusToast');
+    const kbWrap = document.getElementById('keyboardWrap');
+    const kbCanvas = document.getElementById('keyboardCanvas');
+    const kbCtx = kbCanvas.getContext('2d');
+    const libraryBtn = document.getElementById('libraryBtn');
+    const libraryPopover = document.getElementById('libraryPopover');
+    const libraryList = document.getElementById('libraryList');
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPopover = document.getElementById('settingsPopover');
+    const setMetronomeEl = document.getElementById('setMetronome');
+    const setCountInEl = document.getElementById('setCountIn');
+    const setToleranceEl = document.getElementById('setTolerance');
+    const tolValueEl = document.getElementById('tolValue');
+    const setKeyboardEl = document.getElementById('setKeyboard');
 
     let toastTimer = null;
     function showToast(msg) {
@@ -358,12 +466,12 @@
       const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
       if (outPort) {
         try {
-          outPort.send([0x90 | (channel & 0x0F), pitch & 0x7F, Math.max(1, Math.min(127, velocity))]);
+          outPort.send([0x90, pitch & 0x7F, Math.max(1, Math.min(127, velocity))]); // always channel 1 (pianos often only listen there)
         } catch (e) {
           // Ignore transient disconnect errors
         }
       }
-      state.soundingOutNotes.set(pitch, { channel });
+      state.soundingOutNotes.set(pitch, { channel: 0 });
     }
 
     // Push MIDI Note Off directly to connected digital piano
@@ -371,7 +479,7 @@
       const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
       if (outPort) {
         try {
-          outPort.send([0x80 | (channel & 0x0F), pitch & 0x7F, 0]);
+          outPort.send([0x80, pitch & 0x7F, 0]);
         } catch (e) {
           // Ignore transient disconnect errors
         }
@@ -411,13 +519,13 @@
       if (status === 0x90 && velocity > 0) {
         // Note On from piano keyboard
         state.userHeldPitches.add(pitch);
-        if (state.mode === 'learn' && state.isPlaying && state.waitingForUser) {
-          state.stepFreshPresses.add(pitch);
-          evaluateLearnStep();
+        if (state.mode === 'learn' && state.isPlaying) {
+          registerLearnPress(pitch);
         }
       } else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
         // Note Off from piano keyboard
         state.userHeldPitches.delete(pitch);
+        state.matchedHeld.delete(pitch);
       }
     }
 
@@ -785,10 +893,110 @@
       return current;
     }
 
+    // ---- Song-time helpers
+    function ticksPerMsAt(tick) {
+      // Song ticks that elapse per real millisecond at 1x speed
+      const msPerQuarter = getMicrosecondsPerQuarterAtTick(tick) / 1000;
+      return state.song.ticksPerQuarter / msPerQuarter;
+    }
+
+    // ---- Metronome (WebAudio click, follows the MIDI's own tempo, scaled by speed)
+    function ensureAudio() {
+      if (!state.audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) {
+          try { state.audioCtx = new AC({ latencyHint: 'interactive' }); } catch (e) { state.audioCtx = null; }
+        }
+      }
+      if (state.audioCtx && state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+      }
+      return state.audioCtx;
+    }
+
+    function playClick(delaySec, accent) {
+      const ac = state.audioCtx;
+      if (!ac) return;
+      const t = ac.currentTime + Math.max(0, delaySec);
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = accent ? 1568 : 1046;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(accent ? 0.9 : 0.6, t + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      osc.start(t);
+      osc.stop(t + 0.06);
+    }
+
+    // One click per beat; compound metres (6/8, 9/8, 12/8) click on the dotted quarter
+    function getBeatTicks() {
+      const ts = state.song.timeSig;
+      let unit = state.song.ticksPerQuarter * 4 / ts.denominator;
+      if (ts.denominator === 8 && ts.numerator >= 6 && ts.numerator % 3 === 0) unit *= 3;
+      return unit;
+    }
+
+    function getBeatsPerBar() {
+      return Math.max(1, Math.round(state.song.ticksPerMeasure / getBeatTicks()));
+    }
+
+    function alignMetronome() {
+      if (!state.song) return;
+      const bt = getBeatTicks();
+      state.nextBeatTick = Math.ceil((state.currentTick - 0.001) / bt) * bt;
+    }
+
+    function isDownbeat(tick) {
+      const m = state.song.ticksPerMeasure;
+      const r = ((tick % m) + m) % m;
+      return r < 1 || m - r < 1;
+    }
+
+    // Schedule clicks for every beat up to horizonTick (called each frame with a small look-ahead)
+    function scheduleMetronome(horizonTick, tpms) {
+      const bt = getBeatTicks();
+      let guard = 0;
+      while (state.nextBeatTick < horizonTick && guard++ < 16) {
+        const tick = state.nextBeatTick;
+        const delaySec = Math.max(0, (tick - state.currentTick) / (tpms * state.speed)) / 1000;
+        playClick(delaySec, isDownbeat(tick));
+        state.nextBeatTick += bt;
+      }
+    }
+
+    function startCountIn() {
+      ensureAudio();
+      const bt = getBeatTicks();
+      const beats = getBeatsPerBar();
+      const beatMs = bt / (ticksPerMsAt(state.currentTick) * state.speed);
+      const leadSec = 0.05;
+      for (let i = 0; i < beats; i++) {
+        playClick(leadSec + (i * beatMs) / 1000, i === 0);
+      }
+      const startMs = performance.now() + leadSec * 1000;
+      state.countIn = { startMs, beatMs, beats, endMs: startMs + beats * beatMs };
+
+      // If we start exactly on a beat, click that downbeat in perfect time right after the count-in
+      const beatPos = state.currentTick / bt;
+      const onBeat = Math.abs(beatPos - Math.round(beatPos)) < 0.01;
+      if (onBeat && state.settings.metronome) {
+        const tick = Math.round(beatPos) * bt;
+        playClick(leadSec + (beats * beatMs) / 1000, isDownbeat(tick));
+        state.nextBeatTick = tick + bt;
+      } else {
+        alignMetronome();
+      }
+    }
+
+    // ---- Transport
     function setPlaying(shouldPlay) {
       if (!state.song) return;
 
       if (shouldPlay) {
+        ensureAudio(); // must happen inside the user's tap for browsers to allow sound
         if (state.currentTick >= state.song.totalTicks - 10) {
           resetToStart();
         }
@@ -796,11 +1004,12 @@
         state.lastFrameTime = performance.now();
 
         if (state.mode === 'learn') {
-          syncLearnStepToCurrentTick();
+          beginLearnRun();
         }
       } else {
         state.isPlaying = false;
         state.lastFrameTime = null;
+        state.countIn = null;
         stopAllMidiNotes();
       }
       updatePlayButtonUI();
@@ -812,12 +1021,26 @@
       state.currentStepIndex = 0;
       state.waitingForUser = false;
       state.stepFreshPresses.clear();
+      state.matchedHeld.clear();
+      state.countIn = null;
+      alignMetronome();
       if (state.mode === 'learn' && state.isPlaying) {
-        syncLearnStepToCurrentTick();
+        beginLearnRun();
+      }
+    }
+
+    function beginLearnRun() {
+      syncLearnStepToCurrentTick();
+      state.countIn = null;
+      if (state.settings.countIn) {
+        startCountIn();
+      } else {
+        alignMetronome();
       }
     }
 
     function syncLearnStepToCurrentTick() {
+      state.matchedHeld.clear();
       if (!state.learnSteps.length) {
         state.waitingForUser = false;
         return;
@@ -832,32 +1055,51 @@
       state.stepFreshPresses.clear();
     }
 
+    // ---- Learn mode: music keeps flowing; it only stops when you are later than the tolerance
+    function earlyWindowMs() {
+      return Math.max(150, state.settings.toleranceMs);
+    }
+
+    // Milliseconds (real time) between the playhead and the step. Negative = step still ahead.
+    function learnDeltaMs(step) {
+      let d = (state.currentTick - step.tick) / (ticksPerMsAt(state.currentTick) * state.speed);
+      if (state.countIn) {
+        d -= Math.max(0, state.countIn.endMs - performance.now());
+      }
+      return d;
+    }
+
+    function registerLearnPress(pitch) {
+      const step = state.learnSteps[state.currentStepIndex];
+      if (!step) return;
+      // Ignore key presses that come much too early for this step
+      if (learnDeltaMs(step) < -earlyWindowMs()) return;
+      state.stepFreshPresses.add(pitch);
+      evaluateLearnStep();
+    }
+
     function evaluateLearnStep() {
-      if (state.mode !== 'learn' || !state.isPlaying || !state.waitingForUser) return;
+      if (state.mode !== 'learn' || !state.isPlaying) return;
       const step = state.learnSteps[state.currentStepIndex];
       if (!step) return;
 
-      // Verify all required notes in this chord/step are currently held AND freshly pressed
-      let allMatched = true;
+      // All required notes of this chord/step must be held and freshly pressed
       for (const reqPitch of step.requiredPitches) {
         if (!state.userHeldPitches.has(reqPitch) || !state.stepFreshPresses.has(reqPitch)) {
-          allMatched = false;
-          break;
+          return;
         }
       }
 
-      if (allMatched) {
-        // Advance to next step
-        state.currentStepIndex++;
-        state.waitingForUser = false;
-        state.stepFreshPresses.clear();
+      for (const reqPitch of step.requiredPitches) state.matchedHeld.add(reqPitch);
+      state.currentStepIndex++;
+      state.waitingForUser = false;
+      state.stepFreshPresses.clear();
 
-        if (state.currentStepIndex >= state.learnSteps.length) {
-          // Reached end of piece
-          state.currentTick = state.song.totalTicks;
-          setPlaying(false);
-          showToast('Piece completed');
-        }
+      if (state.currentStepIndex >= state.learnSteps.length) {
+        // Reached end of piece
+        state.currentTick = state.song.totalTicks;
+        setPlaying(false);
+        showToast('Piece completed');
       }
     }
 
@@ -867,6 +1109,16 @@
       if (!state.isPlaying || state.isDragging) {
         state.lastFrameTime = now;
         return;
+      }
+
+      // Count-in: playhead stays put while the metronome counts one bar
+      if (state.countIn) {
+        if (now < state.countIn.endMs) {
+          state.lastFrameTime = now;
+          return;
+        }
+        state.lastFrameTime = state.countIn.endMs; // carry the tiny overshoot into the first frame
+        state.countIn = null;
       }
 
       const dtMs = Math.min(100, now - (state.lastFrameTime || now));
@@ -903,26 +1155,27 @@
           setPlaying(false);
         }
       } else if (state.mode === 'learn') {
-        // Learning mode: glide playhead to currentStepIndex's tick and wait for piano input
-        const targetStep = state.learnSteps[state.currentStepIndex];
-        if (!targetStep) {
+        // Learning mode: the playhead flows at the piece's own tempo (with metronome).
+        // It only stops on a note once you are later than the tolerance setting.
+        const step = state.learnSteps[state.currentStepIndex];
+        if (!step) {
           setPlaying(false);
           return;
         }
 
         if (!state.waitingForUser) {
-          const nextTick = state.currentTick + Math.max(deltaTicks, dtMs * 0.45);
-          if (nextTick >= targetStep.tick) {
-            state.currentTick = targetStep.tick;
+          state.currentTick += deltaTicks;
+          const tolTicks = state.settings.toleranceMs * ticksPerMs * state.speed;
+          const stopTick = step.tick + tolTicks;
+
+          if (state.currentTick > stopTick) {
+            // Too late: halt exactly on the missed note and wait for the right key(s)
+            state.currentTick = step.tick;
             state.waitingForUser = true;
             state.stepFreshPresses.clear();
-            // Check immediately in case user already pressed right as playhead arrived
-            for (const p of state.userHeldPitches) {
-              state.stepFreshPresses.add(p);
-            }
-            evaluateLearnStep();
-          } else {
-            state.currentTick = nextTick;
+          } else if (state.settings.metronome) {
+            const lookTicks = 80 * ticksPerMs * state.speed; // ~80 ms look-ahead for sample-accurate clicks
+            scheduleMetronome(Math.min(state.currentTick + lookTicks, stopTick), ticksPerMs);
           }
         }
       }
@@ -979,6 +1232,11 @@
       canvas.width = Math.floor(rect.width * dpr);
       canvas.height = Math.floor(rect.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const kr = kbWrap.getBoundingClientRect();
+      kbCanvas.width = Math.floor(kr.width * dpr);
+      kbCanvas.height = Math.floor(kr.height * dpr);
+      kbCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     // Draw crisp calligraphic Treble Clef (G clef)
@@ -1298,7 +1556,7 @@
       // 6. Draw Real-Time Feedback on the Staff for Keys Currently Pressed by User on USB Piano
       if (state.userHeldPitches.size > 0) {
         for (const pitch of state.userHeldPitches) {
-          const isTarget = activeLearnStep && activeLearnStep.requiredPitches.has(pitch);
+          const isTarget = (activeLearnStep && activeLearnStep.requiredPitches.has(pitch)) || state.matchedHeld.has(pitch);
           const info = pitchToDiatonic(pitch, useFlats);
           const isTreble = pitch >= 60;
           const ny = getNoteY(info.diatonicStep, isTreble);
@@ -1388,6 +1646,19 @@
       ctx.fillText(String(state.song.timeSig.denominator), tsX, bassTopY + lineSpacing * 3.0);
 
       ctx.restore();
+
+      // 9. Count-in overlay (big beat number while the metronome counts the bar in)
+      if (state.countIn) {
+        const nowMs = performance.now();
+        const beatNo = Math.max(1, Math.min(state.countIn.beats, Math.floor((nowMs - state.countIn.startMs) / state.countIn.beatMs) + 1));
+        ctx.save();
+        ctx.fillStyle = 'rgba(180, 83, 9, 0.85)';
+        ctx.font = `600 ${Math.round(Math.min(96, height * 0.2))}px "Crimson Pro", Georgia, serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(beatNo), playheadScreenX + (width - playheadScreenX) * 0.45, (trebleTopY + bassBottomY) / 2);
+        ctx.restore();
+      }
     }
 
     function isNoteActive(note, activeLearnStep) {
@@ -1465,6 +1736,128 @@
     }
 
     // --------------------------------------------------------------------------
+    // 6b. KEYBOARD VISUALISATION
+    //     yellow = next expected key | green = expected key you are pressing
+    //     red = a different key you are pressing
+    // --------------------------------------------------------------------------
+    const KB_YELLOW = '#FACC15';
+    const KB_GREEN = '#22C55E';
+    const KB_RED = '#EF4444';
+
+    function isBlackKey(p) {
+      const m = p % 12;
+      return m === 1 || m === 3 || m === 6 || m === 8 || m === 10;
+    }
+
+    function computeKeyboardRange(song) {
+      let lo = 127, hi = 0;
+      for (const n of song.notes) {
+        if (n.pitch < lo) lo = n.pitch;
+        if (n.pitch > hi) hi = n.pitch;
+      }
+      if (lo > hi) { lo = 48; hi = 84; }
+      lo -= 2; hi += 2;
+      if (hi - lo < 36) {
+        const mid = Math.round((hi + lo) / 2);
+        lo = mid - 18; hi = mid + 18;
+      }
+      lo = Math.max(21, lo);
+      hi = Math.min(108, hi);
+      while (isBlackKey(lo)) lo--;
+      while (isBlackKey(hi)) hi++;
+      return { lo, hi };
+    }
+
+    function getExpectedPitches() {
+      const out = new Set();
+      if (!state.song) return out;
+      if (state.mode === 'learn') {
+        const step = state.learnSteps[state.currentStepIndex];
+        if (step) for (const p of step.requiredPitches) out.add(p);
+      } else if (state.isPlaying) {
+        for (const n of state.song.notes) {
+          if (state.currentTick >= n.startTick && state.currentTick <= n.endTick) out.add(n.pitch);
+        }
+      }
+      return out;
+    }
+
+    function kbPath(c, x, y, w, h, r) {
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x + w, y);
+      c.lineTo(x + w, y + h - r);
+      c.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      c.lineTo(x + r, y + h);
+      c.quadraticCurveTo(x, y + h, x, y + h - r);
+      c.closePath();
+    }
+
+    function renderKeyboard() {
+      if (!state.settings.showKeyboard) return;
+      const w = kbWrap.clientWidth;
+      const h = kbWrap.clientHeight;
+      if (!w || !h) return;
+
+      kbCtx.fillStyle = '#F2ECE0';
+      kbCtx.fillRect(0, 0, w, h);
+      if (!state.song) return;
+
+      const { lo, hi } = state.kbRange;
+      const whites = [];
+      for (let p = lo; p <= hi; p++) if (!isBlackKey(p)) whites.push(p);
+
+      const pad = 6;
+      const whiteW = (w - pad * 2) / whites.length;
+      const blackW = whiteW * 0.62;
+      const blackH = (h - 6) * 0.62;
+      const topY = 4;
+      const keyH = h - 8;
+
+      const expected = getExpectedPitches();
+      const held = state.userHeldPitches;
+
+      function keyColor(p, black) {
+        if (held.has(p)) {
+          return (expected.has(p) || state.matchedHeld.has(p)) ? KB_GREEN : KB_RED;
+        }
+        if (expected.has(p)) return KB_YELLOW;
+        return black ? '#2A2522' : '#FFFDF8';
+      }
+
+      // White keys
+      kbCtx.lineWidth = 1;
+      whites.forEach((p, i) => {
+        const x = pad + i * whiteW;
+        kbPath(kbCtx, x + 0.5, topY, whiteW - 1, keyH, 4);
+        kbCtx.fillStyle = keyColor(p, false);
+        kbCtx.fill();
+        kbCtx.strokeStyle = '#B8AC96';
+        kbCtx.stroke();
+
+        if (p % 12 === 0 && whiteW >= 16) {
+          kbCtx.fillStyle = '#8A7F6C';
+          kbCtx.font = '10px Inter, sans-serif';
+          kbCtx.textAlign = 'center';
+          kbCtx.textBaseline = 'alphabetic';
+          kbCtx.fillText('C' + (Math.floor(p / 12) - 1), x + whiteW / 2, topY + keyH - 6);
+        }
+      });
+
+      // Black keys (drawn on top)
+      whites.forEach((p, i) => {
+        const bp = p + 1;
+        if (bp > hi || !isBlackKey(bp)) return;
+        const x = pad + (i + 1) * whiteW - blackW / 2;
+        kbPath(kbCtx, x, topY, blackW, blackH, 3);
+        kbCtx.fillStyle = keyColor(bp, true);
+        kbCtx.fill();
+        kbCtx.strokeStyle = (held.has(bp) || expected.has(bp)) ? '#6B5B2E' : '#14110F';
+        kbCtx.stroke();
+      });
+    }
+
+    // --------------------------------------------------------------------------
     // 7. UI EVENT LISTENERS & INTERACTION
     // --------------------------------------------------------------------------
     function updatePlayButtonUI() {
@@ -1487,6 +1880,8 @@
       if (state.mode === newMode) return;
       stopAllMidiNotes();
       state.mode = newMode;
+      state.countIn = null;
+      alignMetronome();
 
       if (newMode === 'play') {
         modePlayBtn.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs';
@@ -1522,47 +1917,236 @@
       });
     });
 
-    // Load MIDI File from iPad Files / Computer
+    // --------------------------------------------------------------------------
+    // 7b. LIBRARY (built-in pieces + MIDI files hosted in the site's /midi folder)
+    // --------------------------------------------------------------------------
+    const PAVANE_B64 = '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';
+
+    function base64ToArrayBuffer(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    const MIDI_DIR = 'midi/';   // folder next to index.html that holds your hosted .mid files
+    const BUILTIN_PIECES = [
+      { id: 'faure_pavane.mid', title: 'Fauré — Pavane', load: async () => base64ToArrayBuffer(PAVANE_B64) },
+      { id: 'bach_prelude_demo', title: 'Bach — Prelude in C Major (demo)', load: async () => createDemoBachMidiBuffer() }
+    ];
+    let hostedPieces = [];
+    let hostedStatus = 'idle'; // 'loading' | 'ready' | 'empty' | 'error'
+
+    function prettifyName(file) {
+      const base = file.split('/').pop().replace(/\.midi?$/i, '').replace(/[_-]+/g, ' ').trim();
+      return base.replace(/\b\p{L}/gu, c => c.toUpperCase());
+    }
+
+    function hostedPieceFrom(entry) {
+      const isObj = entry && typeof entry === 'object';
+      const file = isObj ? (entry.file || entry.name || entry.path) : entry;
+      if (!file || typeof file !== 'string' || !/\.midi?$/i.test(file)) return null;
+      const title = (isObj && entry.title) ? String(entry.title) : prettifyName(file);
+      const url = MIDI_DIR + file.split('/').map(encodeURIComponent).join('/');
+      return {
+        id: file,
+        title,
+        load: async () => {
+          const r = await fetch(url);
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.arrayBuffer();
+        }
+      };
+    }
+
+    // Fallback when there is no midi/index.json: ask GitHub which files are in the midi folder
+    async function listMidiViaGithubApi() {
+      const host = location.hostname;
+      if (!host.endsWith('.github.io')) return null;
+      const owner = host.split('.')[0];
+      const first = location.pathname.split('/').filter(Boolean)[0];
+      const repo = (first && !/\.html?$/i.test(first)) ? first : host;
+      const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/midi`);
+      if (!r.ok) return null;
+      const items = await r.json();
+      return items.filter(i => i.type === 'file').map(i => i.name);
+    }
+
+    async function loadHostedLibrary() {
+      hostedStatus = 'loading';
+      renderLibrary();
+
+      let entries = null;
+      try {
+        const r = await fetch(MIDI_DIR + 'index.json', { cache: 'no-cache' });
+        if (r.ok) {
+          const j = await r.json();
+          entries = Array.isArray(j) ? j : (j.files || []);
+        }
+      } catch (e) {}
+
+      if (!entries) {
+        try { entries = await listMidiViaGithubApi(); } catch (e) {}
+      }
+
+      if (!entries) {
+        hostedStatus = 'error';
+        renderLibrary();
+        return;
+      }
+
+      const seen = new Set(BUILTIN_PIECES.map(p => p.id.toLowerCase()));
+      hostedPieces = [];
+      for (const entry of entries) {
+        const piece = hostedPieceFrom(entry);
+        if (piece && !seen.has(piece.id.toLowerCase())) {
+          seen.add(piece.id.toLowerCase());
+          hostedPieces.push(piece);
+        }
+      }
+      hostedStatus = hostedPieces.length ? 'ready' : 'empty';
+      renderLibrary();
+    }
+
+    function renderLibrary() {
+      libraryList.textContent = '';
+
+      const addHeader = (text) => {
+        const h = document.createElement('div');
+        h.className = 'px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-stone-500';
+        h.textContent = text;
+        libraryList.appendChild(h);
+      };
+      const addNote = (text) => {
+        const n = document.createElement('div');
+        n.className = 'px-3 py-2 text-xs text-stone-500 leading-relaxed';
+        n.textContent = text;
+        libraryList.appendChild(n);
+      };
+      const addItem = (piece) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        const active = state.currentLibraryId === piece.id;
+        b.className = 'w-full text-left px-3 py-2.5 rounded-lg text-sm transition ' +
+          (active ? 'bg-white font-semibold text-stone-900 shadow-sm' : 'text-stone-700 hover:bg-white');
+        b.textContent = (active ? '♪ ' : '') + piece.title;
+        b.addEventListener('click', () => openLibraryPiece(piece));
+        libraryList.appendChild(b);
+      };
+
+      addHeader('Built-in');
+      BUILTIN_PIECES.forEach(addItem);
+
+      addHeader('Online library');
+      hostedPieces.forEach(addItem);
+      if (hostedStatus === 'loading') addNote('Loading…');
+      else if (hostedStatus === 'error') addNote('Online library not reachable (it works on the hosted site, not from a local file).');
+      else if (hostedStatus === 'empty' || hostedStatus === 'ready') addNote('Add .mid files to the midi/ folder of your site and they will show up here.');
+    }
+
+    async function openLibraryPiece(piece) {
+      libraryPopover.classList.add('hidden');
+      try {
+        const buf = await piece.load();
+        await loadSongFromBuffer(buf, piece.title, piece.id);
+      } catch (err) {
+        showToast('Could not load ' + piece.title);
+      }
+    }
+
+    // Parse a MIDI buffer and make it the current piece
+    async function loadSongFromBuffer(buf, title, id, silent) {
+      setPlaying(false);
+      const parsed = parseMidiFile(buf, title);
+      if (!parsed.notes.length) {
+        throw new Error('No playable notes found in MIDI');
+      }
+      state.song = parsed;
+      state.learnSteps = buildLearnSteps(parsed);
+      state.kbRange = computeKeyboardRange(parsed);
+      state.currentLibraryId = id || null;
+      pieceTitleEl.textContent = parsed.title;
+      resetToStart();
+      renderLibrary();
+      if (!silent) showToast(`Loaded: ${parsed.title}`);
+    }
+
+    // Load MIDI File from device Files / Computer
     midiFileInput.addEventListener('change', async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
 
       try {
-        setPlaying(false);
         const buf = await file.arrayBuffer();
         const cleanName = file.name.replace(/\.(mid|midi)$/i, '');
-        const parsed = parseMidiFile(buf, cleanName);
-
-        if (!parsed.notes.length) {
-          showToast('No playable notes found in MIDI');
-          return;
-        }
-
-        state.song = parsed;
-        state.learnSteps = buildLearnSteps(parsed);
-        pieceTitleEl.textContent = parsed.title;
-        resetToStart();
-        showToast(`Loaded: ${parsed.title}`);
+        await loadSongFromBuffer(buf, cleanName, null);
       } catch (err) {
-        showToast('Could not read MIDI file');
+        showToast(err && /No playable/.test(err.message) ? 'No playable notes found in MIDI' : 'Could not read MIDI file');
       } finally {
         midiFileInput.value = '';
       }
     });
 
-    // MIDI Port Popover Toggle
-    midiPortBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      midiPopover.classList.toggle('hidden');
-      if (!state.midiAccess) {
-        initWebMIDI();
-      }
+    // --------------------------------------------------------------------------
+    // 7c. SETTINGS
+    // --------------------------------------------------------------------------
+    function applySettingsToUI() {
+      setMetronomeEl.checked = !!state.settings.metronome;
+      setCountInEl.checked = !!state.settings.countIn;
+      setToleranceEl.value = state.settings.toleranceMs;
+      tolValueEl.textContent = state.settings.toleranceMs + ' ms';
+      setKeyboardEl.checked = !!state.settings.showKeyboard;
+      kbWrap.style.display = state.settings.showKeyboard ? '' : 'none';
+    }
+
+    setMetronomeEl.addEventListener('change', () => {
+      state.settings.metronome = setMetronomeEl.checked;
+      alignMetronome();
+      saveSettings();
+    });
+    setCountInEl.addEventListener('change', () => {
+      state.settings.countIn = setCountInEl.checked;
+      saveSettings();
+    });
+    setToleranceEl.addEventListener('input', () => {
+      state.settings.toleranceMs = parseInt(setToleranceEl.value, 10) || 0;
+      tolValueEl.textContent = state.settings.toleranceMs + ' ms';
+      saveSettings();
+    });
+    setKeyboardEl.addEventListener('change', () => {
+      state.settings.showKeyboard = setKeyboardEl.checked;
+      applySettingsToUI();
+      resizeCanvas();
+      saveSettings();
+    });
+
+    // --------------------------------------------------------------------------
+    // 7d. POPOVERS (USB MIDI ports, Library, Settings)
+    // --------------------------------------------------------------------------
+    const popovers = [
+      { btn: midiPortBtn, pop: midiPopover },
+      { btn: libraryBtn, pop: libraryPopover },
+      { btn: settingsBtn, pop: settingsPopover }
+    ];
+
+    popovers.forEach((entry) => {
+      entry.btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const willOpen = entry.pop.classList.contains('hidden');
+        popovers.forEach(p => p.pop.classList.add('hidden'));
+        if (willOpen) entry.pop.classList.remove('hidden');
+        if (entry.btn === midiPortBtn && !state.midiAccess) {
+          initWebMIDI();
+        }
+      });
     });
 
     document.addEventListener('click', (e) => {
-      if (!midiPopover.contains(e.target) && e.target !== midiPortBtn) {
-        midiPopover.classList.add('hidden');
-      }
+      popovers.forEach(({ btn, pop }) => {
+        if (!pop.contains(e.target) && !btn.contains(e.target)) {
+          pop.classList.add('hidden');
+        }
+      });
     });
 
     midiInSelect.addEventListener('change', () => {
@@ -1584,6 +2168,7 @@
       state.dragStartX = clientX;
       state.dragStartTick = state.currentTick;
       state.wasPlayingBeforeDrag = state.isPlaying;
+      state.countIn = null;
       stopAllMidiNotes();
     }
 
@@ -1605,6 +2190,7 @@
       if (state.mode === 'learn' && state.wasPlayingBeforeDrag) {
         syncLearnStepToCurrentTick();
       }
+      alignMetronome();
     }
 
     canvas.addEventListener('mousedown', (e) => beginScrub(e.clientX));
@@ -1640,6 +2226,11 @@
     });
 
     window.addEventListener('resize', resizeCanvas);
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(() => resizeCanvas());
+      ro.observe(container);
+      ro.observe(kbWrap);
+    }
 
     // --------------------------------------------------------------------------
     // 8. INITIALIZATION & MAIN ANIMATION LOOP
@@ -1647,17 +2238,18 @@
     function mainLoop(now) {
       updateSimulation(now);
       renderSheetMusic();
+      renderKeyboard();
       requestAnimationFrame(mainLoop);
     }
 
     window.onload = function () {
+      applySettingsToUI();
       resizeCanvas();
 
-      // Load built-in Bach Prelude demo so sheet music is ready immediately
-      const demoBuf = createDemoBachMidiBuffer();
-      const demoSong = parseMidiFile(demoBuf, 'Bach — Prelude in C Major');
-      state.song = demoSong;
-      state.learnSteps = buildLearnSteps(demoSong);
+      // Default piece: Fauré — Pavane (embedded, so it works even offline / from a local file)
+      loadSongFromBuffer(base64ToArrayBuffer(PAVANE_B64), 'Fauré — Pavane', 'faure_pavane.mid', true);
+      renderLibrary();
+      loadHostedLibrary();
 
       // Initialize USB MIDI ports
       initWebMIDI();
