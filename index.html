@@ -105,6 +105,13 @@
         </button>
       </div>
 
+      <!-- Hand selection (Learn mode only) -->
+      <select id="handSelect" aria-label="Hand" class="hidden px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800 focus:outline-none">
+        <option value="both">Both hands</option>
+        <option value="right">Right hand</option>
+        <option value="left">Left hand</option>
+      </select>
+
       <!-- Play/Pause & Restart -->
       <div class="inline-flex items-center gap-1">
         <button id="playPauseBtn" type="button" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs sm:text-sm font-medium shadow-sm transition min-w-[82px]">
@@ -145,6 +152,28 @@
             <span class="text-stone-800">Count-in (one bar)</span>
             <input id="setCountIn" type="checkbox" class="w-5 h-5 accent-emerald-800" />
           </label>
+
+          <div>
+            <label for="setMetroOut" class="block text-stone-800 mb-1">Metronome sound</label>
+            <select id="setMetroOut" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
+              <option value="audio">Audio (tablet / USB audio)</option>
+              <option value="midi">MIDI → piano</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+
+          <div id="midiClickRow">
+            <label for="setMidiClick" class="block text-stone-800 mb-1">MIDI click sound</label>
+            <select id="setMidiClick" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
+              <option value="piano">High piano ticks (any piano)</option>
+              <option value="woodblock">GM wood block (channel 10)</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button id="testClickBtn" type="button" class="px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Test click</button>
+            <p class="text-[11px] leading-relaxed text-stone-500">MIDI mode plays click notes through the piano. Which speaker the audio mode uses is decided by Android.</p>
+          </div>
 
           <div>
             <div class="flex items-center justify-between">
@@ -270,12 +299,24 @@
       metronome: true,
       countIn: true,
       toleranceMs: 200,
-      showKeyboard: true
+      showKeyboard: true,
+      hand: 'both',              // 'both' | 'right' | 'left'  (Learn mode)
+      metronomeOutput: 'audio',  // 'audio' | 'midi' | 'both'
+      midiClickSound: 'piano'    // 'piano' | 'woodblock'
+    };
+    const ALLOWED_SETTINGS = {
+      hand: ['both', 'right', 'left'],
+      metronomeOutput: ['audio', 'midi', 'both'],
+      midiClickSound: ['piano', 'woodblock']
     };
     function loadSettings() {
       try {
         const saved = JSON.parse(localStorage.getItem('midiTrainerSettings') || '{}');
-        return { ...DEFAULT_SETTINGS, ...saved };
+        const merged = { ...DEFAULT_SETTINGS, ...saved };
+        for (const key of Object.keys(ALLOWED_SETTINGS)) {
+          if (!ALLOWED_SETTINGS[key].includes(merged[key])) merged[key] = DEFAULT_SETTINGS[key];
+        }
+        return merged;
       } catch (e) {
         return { ...DEFAULT_SETTINGS };
       }
@@ -322,6 +363,11 @@
     const setToleranceEl = document.getElementById('setTolerance');
     const tolValueEl = document.getElementById('tolValue');
     const setKeyboardEl = document.getElementById('setKeyboard');
+    const handSelect = document.getElementById('handSelect');
+    const setMetroOutEl = document.getElementById('setMetroOut');
+    const setMidiClickEl = document.getElementById('setMidiClick');
+    const midiClickRow = document.getElementById('midiClickRow');
+    const testClickBtn = document.getElementById('testClickBtn');
 
     let toastTimer = null;
     function showToast(msg) {
@@ -757,12 +803,21 @@
     }
 
     // Build sequential chord/note steps for Learning Mode
+    // Which hand a note belongs to (same split as the sheet music: middle C and up = right hand)
+    function noteInHand(note, hand) {
+      if (hand === 'right') return note.pitch >= 60;
+      if (hand === 'left') return note.pitch < 60;
+      return true;
+    }
+
     function buildLearnSteps(song) {
       if (!song || !song.notes.length) return [];
       const toleranceTicks = Math.max(10, Math.round(song.ticksPerQuarter / 24)); // ~20ms tolerance for chords
       const steps = [];
+      const hand = state.settings.hand;
 
       for (const note of song.notes) {
+        if (!noteInHand(note, hand)) continue;
         const lastStep = steps[steps.length - 1];
         if (lastStep && Math.abs(note.startTick - lastStep.tick) <= toleranceTicks) {
           lastStep.notes.push(note);
@@ -931,6 +986,32 @@
       osc.stop(t + 0.06);
     }
 
+    // MIDI click: notes played through the piano itself.
+    // The LP-380's built-in metronome only has a panel button, so we play click notes instead.
+    const MIDI_CLICKS = {
+      piano:     { channel: 0, accent: 108, normal: 103, velAccent: 110, velNormal: 85, lenMs: 60 }, // top keys = short "tick"
+      woodblock: { channel: 9, accent: 76,  normal: 77,  velAccent: 110, velNormal: 85, lenMs: 60 }  // GM hi/lo wood block
+    };
+
+    function sendMidiClick(delaySec, accent) {
+      const out = state.midiOutputs.find(o => o.id === state.selectedOutputId);
+      if (!out) return;
+      const c = MIDI_CLICKS[state.settings.midiClickSound] || MIDI_CLICKS.piano;
+      const note = accent ? c.accent : c.normal;
+      const vel = accent ? c.velAccent : c.velNormal;
+      const t = performance.now() + Math.max(0, delaySec) * 1000; // Web MIDI timestamps give sample-accurate scheduling
+      try {
+        out.send([0x90 | c.channel, note, vel], t);
+        out.send([0x80 | c.channel, note, 0], t + c.lenMs);
+      } catch (e) {}
+    }
+
+    function clickOut(delaySec, accent) {
+      const mode = state.settings.metronomeOutput;
+      if (mode === 'audio' || mode === 'both') playClick(delaySec, accent);
+      if (mode === 'midi' || mode === 'both') sendMidiClick(delaySec, accent);
+    }
+
     // One click per beat; compound metres (6/8, 9/8, 12/8) click on the dotted quarter
     function getBeatTicks() {
       const ts = state.song.timeSig;
@@ -962,7 +1043,7 @@
       while (state.nextBeatTick < horizonTick && guard++ < 16) {
         const tick = state.nextBeatTick;
         const delaySec = Math.max(0, (tick - state.currentTick) / (tpms * state.speed)) / 1000;
-        playClick(delaySec, isDownbeat(tick));
+        clickOut(delaySec, isDownbeat(tick));
         state.nextBeatTick += bt;
       }
     }
@@ -974,7 +1055,7 @@
       const beatMs = bt / (ticksPerMsAt(state.currentTick) * state.speed);
       const leadSec = 0.05;
       for (let i = 0; i < beats; i++) {
-        playClick(leadSec + (i * beatMs) / 1000, i === 0);
+        clickOut(leadSec + (i * beatMs) / 1000, i === 0);
       }
       const startMs = performance.now() + leadSec * 1000;
       state.countIn = { startMs, beatMs, beats, endMs: startMs + beats * beatMs };
@@ -984,7 +1065,7 @@
       const onBeat = Math.abs(beatPos - Math.round(beatPos)) < 0.01;
       if (onBeat && state.settings.metronome) {
         const tick = Math.round(beatPos) * bt;
-        playClick(leadSec + (beats * beatMs) / 1000, isDownbeat(tick));
+        clickOut(leadSec + (beats * beatMs) / 1000, isDownbeat(tick));
         state.nextBeatTick = tick + bt;
       } else {
         alignMetronome();
@@ -1455,7 +1536,9 @@
 
             // Color stem if any note in cluster is active
             const anyActive = stemmedItems.some(it => isNoteActive(it.note, activeLearnStep));
-            ctx.strokeStyle = anyActive ? '#B45309' : '#1C1917';
+            const allDimmed = stemmedItems.every(it => isDimmedNote(it.note));
+            const stemColor = anyActive ? '#B45309' : (allDimmed ? DIM_NOTE_COLOR : '#1C1917');
+            ctx.strokeStyle = stemColor;
             ctx.lineWidth = 1.45;
             ctx.beginPath();
             ctx.moveTo(stemX, stemStartY);
@@ -1465,7 +1548,7 @@
             // Draw eighth / sixteenth flag on shortest note in cluster
             const minBeats = Math.min(...stemmedItems.map(it => it.note.durationTicks / state.song.ticksPerQuarter));
             if (minBeats < 0.75) {
-              drawFlag(ctx, stemX, stemEndY, stemUp, lineSpacing, minBeats < 0.375);
+              drawFlag(ctx, stemX, stemEndY, stemUp, lineSpacing, minBeats < 0.375, stemColor);
             }
           }
 
@@ -1477,8 +1560,9 @@
             const isOpenHead = beats >= 1.5;
 
             // Determine visual highlight color
-            let fillColor = '#1C1917';
-            let strokeColor = '#1C1917';
+            const dimmed = isDimmedNote(item.note);
+            let fillColor = dimmed ? DIM_NOTE_COLOR : '#1C1917';
+            let strokeColor = dimmed ? DIM_NOTE_COLOR : '#1C1917';
             let glow = false;
 
             if (state.mode === 'learn' && activeLearnStep && activeLearnStep.notes.includes(item.note)) {
@@ -1668,9 +1752,14 @@
       return state.mode === 'play' && state.currentTick >= note.startTick && state.currentTick <= note.endTick;
     }
 
-    function drawFlag(ctx, stemX, stemEndY, stemUp, lineSpacing, isDouble) {
+    const DIM_NOTE_COLOR = '#B9AF9C';
+    function isDimmedNote(note) {
+      return state.mode === 'learn' && state.settings.hand !== 'both' && !noteInHand(note, state.settings.hand);
+    }
+
+    function drawFlag(ctx, stemX, stemEndY, stemUp, lineSpacing, isDouble, color = '#1C1917') {
       ctx.save();
-      ctx.strokeStyle = '#1C1917';
+      ctx.strokeStyle = color;
       ctx.lineWidth = 1.8;
       const dir = stemUp ? 1 : -1;
       const count = isDouble ? 2 : 1;
@@ -1882,6 +1971,7 @@
       state.mode = newMode;
       state.countIn = null;
       alignMetronome();
+      handSelect.classList.toggle('hidden', newMode !== 'learn');
 
       if (newMode === 'play') {
         modePlayBtn.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs';
@@ -2063,6 +2153,12 @@
       }
       state.song = parsed;
       state.learnSteps = buildLearnSteps(parsed);
+      if (!state.learnSteps.length && state.settings.hand !== 'both') {
+        // This piece has nothing for the saved hand: fall back to both hands
+        state.settings.hand = 'both';
+        handSelect.value = 'both';
+        state.learnSteps = buildLearnSteps(parsed);
+      }
       state.kbRange = computeKeyboardRange(parsed);
       state.currentLibraryId = id || null;
       pieceTitleEl.textContent = parsed.title;
@@ -2097,7 +2193,42 @@
       tolValueEl.textContent = state.settings.toleranceMs + ' ms';
       setKeyboardEl.checked = !!state.settings.showKeyboard;
       kbWrap.style.display = state.settings.showKeyboard ? '' : 'none';
+      handSelect.value = state.settings.hand;
+      setMetroOutEl.value = state.settings.metronomeOutput;
+      setMidiClickEl.value = state.settings.midiClickSound;
+      midiClickRow.style.display = state.settings.metronomeOutput === 'audio' ? 'none' : '';
     }
+
+    handSelect.addEventListener('change', () => {
+      const prev = state.settings.hand;
+      state.settings.hand = handSelect.value;
+      const steps = buildLearnSteps(state.song);
+      if (!steps.length) {
+        state.settings.hand = prev;
+        handSelect.value = prev;
+        showToast('This piece has no notes for that hand');
+        return;
+      }
+      state.learnSteps = steps;
+      saveSettings();
+      if (state.mode === 'learn') syncLearnStepToCurrentTick();
+    });
+
+    setMetroOutEl.addEventListener('change', () => {
+      state.settings.metronomeOutput = setMetroOutEl.value;
+      midiClickRow.style.display = state.settings.metronomeOutput === 'audio' ? 'none' : '';
+      saveSettings();
+    });
+    setMidiClickEl.addEventListener('change', () => {
+      state.settings.midiClickSound = setMidiClickEl.value;
+      saveSettings();
+    });
+    testClickBtn.addEventListener('click', () => {
+      ensureAudio();
+      clickOut(0, true);
+      clickOut(0.5, false);
+      clickOut(1.0, false);
+    });
 
     setMetronomeEl.addEventListener('change', () => {
       state.settings.metronome = setMetronomeEl.checked;
