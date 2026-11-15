@@ -89,6 +89,14 @@
           <p id="midiHelpText" class="text-[11px] text-stone-500 leading-relaxed">
             Connect your piano via USB. Notes are read from and sent directly back to your piano.
           </p>
+          <div class="flex items-center gap-2">
+            <button id="midiReconnectBtn" type="button" class="px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Reconnect</button>
+            <span class="text-[11px] leading-snug text-stone-500">Re-scan if the piano stops responding.</span>
+          </div>
+          <details>
+            <summary class="cursor-pointer text-[11px] font-semibold text-stone-600">Connection log</summary>
+            <pre id="midiLog" class="mt-1.5 max-h-32 overflow-y-auto whitespace-pre-wrap text-[10px] leading-snug text-stone-600">No events yet.</pre>
+          </details>
         </div>
       </div>
     </div>
@@ -176,7 +184,7 @@
           <div>
             <label for="setMetroOut" class="block text-stone-800 mb-1">Metronome sound</label>
             <select id="setMetroOut" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
-              <option value="audio">Audio (tablet / USB audio)</option>
+              <option value="audio">Audio (this device)</option>
               <option value="midi">MIDI → piano</option>
               <option value="both">Both</option>
             </select>
@@ -201,20 +209,25 @@
           </div>
 
           <div id="midiClickRow">
-            <label for="setMidiClick" class="block text-stone-800 mb-1">MIDI click sound</label>
+            <label for="setMidiClick" class="block text-stone-800 mb-1">MIDI click</label>
             <select id="setMidiClick" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
-              <option value="piano">High piano ticks (any piano)</option>
-              <option value="woodblock">GM wood block (channel 10)</option>
+              <option value="gm">GM metronome (ch. 10: note 34 bell, 33 click)</option>
+              <option value="piano">High piano ticks (fallback)</option>
             </select>
           </div>
 
           <div class="flex items-center gap-3">
             <button id="testClickBtn" type="button" class="px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Test click</button>
-            <p class="text-[11px] leading-relaxed text-stone-500">MIDI mode plays click notes through the piano. Which speaker the audio mode uses is decided by Android.</p>
+            <p class="text-[11px] leading-relaxed text-stone-500">Audio plays on this device. MIDI sends the click to the piano.</p>
           </div>
 
           <hr class="border-[#DFD6C5]" />
           <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Learn mode</p>
+
+          <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+            <span class="text-stone-800">Wait for me</span>
+            <input id="setWaitMode" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+          </label>
 
           <div>
             <div class="flex items-center justify-between">
@@ -222,9 +235,7 @@
               <span id="tolValue" class="font-semibold text-stone-800 tabular-nums">200 ms</span>
             </div>
             <input id="setTolerance" type="range" min="0" max="1000" step="25" value="200" class="w-full mt-2 accent-emerald-800" />
-            <p class="mt-1 text-[11px] leading-relaxed text-stone-500">
-              Playback only stops and waits for you once you are later than this. Smaller = stricter.
-            </p>
+            <p id="tolHint" class="mt-1 text-[11px] leading-relaxed text-stone-500"></p>
           </div>
 
           <hr class="border-[#DFD6C5]" />
@@ -254,6 +265,12 @@
             <span class="text-stone-800">Show keyboard</span>
             <input id="setKeyboard" type="checkbox" class="w-5 h-5 accent-emerald-800" />
           </label>
+
+          <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+            <span class="text-stone-800">Keep screen on</span>
+            <input id="setKeepAwake" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+          </label>
+          <p class="text-[11px] leading-relaxed text-stone-500">Stops the tablet from locking while you play, which can cut the USB MIDI connection.</p>
         </div>
       </div>
 
@@ -361,7 +378,10 @@
       // Loop (bars) - region is anchored to the bar under the playhead
       loopBars: 0,             // 0 = off, 0.5 / 1 / 2 / 4
       loop: null,              // { start, end } in ticks
-      loopAhead: false         // learn mode: current step already belongs to the next pass
+      loopAhead: false,        // learn mode: current step already belongs to the next pass
+
+      // Learn mode score for the current run
+      learnStats: { hit: 0, missed: 0 }
     };
 
     // User settings (persisted in the browser)
@@ -377,14 +397,18 @@
       clickSound: 'beep',        // 'beep' | 'wood' | 'tick'  (audio clicks)
       hand: 'both',              // 'both' | 'right' | 'left'  (Learn mode)
       metronomeOutput: 'audio',  // 'audio' | 'midi' | 'both'
-      midiClickSound: 'piano'    // 'piano' | 'woodblock'
+      midiClickMode: 'gm',       // 'gm' (GM metronome notes on channel 10) | 'piano' (high piano keys, fallback)
+      waitMode: true,            // Learn mode: stop and wait when you are later than the tolerance
+      keepAwake: true,           // keep the screen on (a locked tablet drops USB MIDI)
+      midiInName: '',            // last chosen MIDI ports, remembered by name (ids change after a reconnect)
+      midiOutName: ''
     };
     const ALLOWED_SETTINGS = {
       hand: ['both', 'right', 'left'],
       metronomeOutput: ['audio', 'midi', 'both'],
       clickSound: ['beep', 'wood', 'tick'],
       clickSubdiv: [1, 2, 3, 4],
-      midiClickSound: ['piano', 'woodblock']
+      midiClickMode: ['gm', 'piano']
     };
     function loadSettings() {
       try {
@@ -395,6 +419,11 @@
         }
         merged.clickSubdiv = parseInt(merged.clickSubdiv, 10);
         if (!ALLOWED_SETTINGS.clickSubdiv.includes(merged.clickSubdiv)) merged.clickSubdiv = 1;
+        delete merged.midiClickSound;   // old setting, replaced by midiClickMode
+        merged.waitMode = merged.waitMode !== false;
+        merged.keepAwake = merged.keepAwake !== false;
+        merged.midiInName = typeof merged.midiInName === 'string' ? merged.midiInName : '';
+        merged.midiOutName = typeof merged.midiOutName === 'string' ? merged.midiOutName : '';
         merged.handsFromTracks = merged.handsFromTracks !== false;
         merged.handSplit = Math.round(Number(merged.handSplit));
         if (!Number.isFinite(merged.handSplit)) merged.handSplit = 60;
@@ -464,6 +493,11 @@
     const splitRowEl = document.getElementById('splitRow');
     const setSplitEl = document.getElementById('setSplit');
     const splitValueEl = document.getElementById('splitValue');
+    const setWaitModeEl = document.getElementById('setWaitMode');
+    const tolHintEl = document.getElementById('tolHint');
+    const setKeepAwakeEl = document.getElementById('setKeepAwake');
+    const midiReconnectBtn = document.getElementById('midiReconnectBtn');
+    const midiLogEl = document.getElementById('midiLog');
 
     let toastTimer = null;
     function showToast(msg) {
@@ -506,21 +540,10 @@
       }
 
       try {
-        // Call requestMIDIAccess() without options first for best compatibility with iOS Web MIDI Browser
-        let access;
-        try {
-          access = await navigator.requestMIDIAccess();
-        } catch (e) {
-          access = await navigator.requestMIDIAccess({ sysex: false });
-        }
-
-        state.midiAccess = access;
-        refreshMidiPorts();
-
-        access.onstatechange = () => {
-          refreshMidiPorts();
-        };
+        attachMidiAccess(await requestMidiAccessCompat());
+        logMidi('MIDI access granted');
       } catch (err) {
+        logMidi('MIDI access failed: ' + (err && err.message ? err.message : err));
         midiStatusDot.className = 'w-2 h-2 rounded-full bg-rose-500 shrink-0';
         midiStatusLabel.textContent = 'MIDI Blocked';
         midiHelpText.textContent = isEmbeddedIframe
@@ -529,63 +552,227 @@
       }
     }
 
+    // ---- Connection log (in the USB MIDI popover) - helps to see when and why the piano drops out
+    const midiLogLines = [];
+    function logMidi(msg) {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      midiLogLines.unshift(`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}  ${msg}`);
+      if (midiLogLines.length > 25) midiLogLines.length = 25;
+      if (midiLogEl) midiLogEl.textContent = midiLogLines.join('\n');
+    }
+
+    // requestMIDIAccess() without options first for best compatibility with iOS Web MIDI Browser
+    async function requestMidiAccessCompat() {
+      try {
+        return await navigator.requestMIDIAccess();
+      } catch (e) {
+        return await navigator.requestMIDIAccess({ sysex: false });
+      }
+    }
+
+    // Keys that were held when the piano vanished never send their Note Off: forget them
+    function releaseAllUserKeys() {
+      state.userHeldPitches.clear();
+      state.matchedHeld.clear();
+      state.stepFreshPresses.clear();
+    }
+
+    function attachMidiAccess(access) {
+      const old = state.midiAccess;
+      if (old && old !== access) {
+        try {
+          old.onstatechange = null;
+          for (const i of old.inputs.values()) i.onmidimessage = null;
+        } catch (e) {}
+      }
+      state.midiAccess = access;
+      access.onstatechange = (e) => {
+        const p = e && e.port;
+        if (p) logMidi(`${p.type} "${p.name || p.id}": ${p.state}${p.connection ? ' / ' + p.connection : ''}`);
+        refreshMidiPorts();
+      };
+      refreshMidiPorts();
+    }
+
+    // Ask the browser for a fresh MIDIAccess (permission is already granted, so there is no prompt)
+    let midiReacquiring = false;
+    async function reacquireMidi(reason) {
+      if (midiReacquiring || !navigator.requestMIDIAccess) return;
+      midiReacquiring = true;
+      logMidi('Re-requesting MIDI access (' + reason + ')');
+      try {
+        attachMidiAccess(await requestMidiAccessCompat());
+      } catch (err) {
+        logMidi('Reconnect failed: ' + (err && err.message ? err.message : err));
+      } finally {
+        midiReacquiring = false;
+      }
+    }
+
+    // Keep the same port after a reconnect: by id first, then by remembered name, then the first one
+    function pickPort(list, currentId, savedName) {
+      if (list.some(p => p.id === currentId)) return currentId;
+      const byName = savedName ? list.find(p => (p.name || '') === savedName) : null;
+      if (byName) return byName.id;
+      return list.length ? list[0].id : '';
+    }
+
     function refreshMidiPorts() {
       if (!state.midiAccess) return;
 
-      state.midiInputs = Array.from(state.midiAccess.inputs.values());
-      state.midiOutputs = Array.from(state.midiAccess.outputs.values());
+      const alive = (p) => p.state !== 'disconnected';
+      const prevInId = state.selectedInputId;
+      const prevOutId = state.selectedOutputId;
+      state.midiInputs = Array.from(state.midiAccess.inputs.values()).filter(alive);
+      state.midiOutputs = Array.from(state.midiAccess.outputs.values()).filter(alive);
 
-      // Populate Input dropdown
-      midiInSelect.innerHTML = '';
-      if (state.midiInputs.length === 0) {
-        midiInSelect.innerHTML = '<option value="">No USB MIDI Input</option>';
-        state.selectedInputId = '';
-      } else {
-        state.midiInputs.forEach((input) => {
-          const opt = document.createElement('option');
-          opt.value = input.id;
-          opt.textContent = input.name || `MIDI Input ${input.id}`;
-          midiInSelect.appendChild(opt);
-        });
-        if (!state.midiInputs.some(i => i.id === state.selectedInputId)) {
-          state.selectedInputId = state.midiInputs[0].id;
+      const fill = (select, ports, emptyLabel, fallbackPrefix) => {
+        select.innerHTML = '';
+        if (!ports.length) {
+          select.innerHTML = `<option value="">${emptyLabel}</option>`;
+          return;
         }
-        midiInSelect.value = state.selectedInputId;
+        ports.forEach((port) => {
+          const opt = document.createElement('option');
+          opt.value = port.id;
+          opt.textContent = port.name || `${fallbackPrefix} ${port.id}`;
+          select.appendChild(opt);
+        });
+      };
+
+      state.selectedInputId = pickPort(state.midiInputs, prevInId, state.settings.midiInName);
+      state.selectedOutputId = pickPort(state.midiOutputs, prevOutId, state.settings.midiOutName);
+      fill(midiInSelect, state.midiInputs, 'No USB MIDI Input', 'MIDI Input');
+      fill(midiOutSelect, state.midiOutputs, 'No USB MIDI Output', 'MIDI Output');
+      if (state.selectedInputId) midiInSelect.value = state.selectedInputId;
+      if (state.selectedOutputId) midiOutSelect.value = state.selectedOutputId;
+
+      if (state.selectedInputId !== prevInId) {
+        releaseAllUserKeys();
+        const p = state.midiInputs.find(i => i.id === state.selectedInputId);
+        logMidi(p ? `Using input "${p.name || p.id}"` : 'No MIDI input available');
       }
-
-      // Populate Output dropdown
-      midiOutSelect.innerHTML = '';
-      if (state.midiOutputs.length === 0) {
-        midiOutSelect.innerHTML = '<option value="">No USB MIDI Output</option>';
-        state.selectedOutputId = '';
-      } else {
-        state.midiOutputs.forEach((output) => {
-          const opt = document.createElement('option');
-          opt.value = output.id;
-          opt.textContent = output.name || `MIDI Output ${output.id}`;
-          midiOutSelect.appendChild(opt);
-        });
-        if (!state.midiOutputs.some(o => o.id === state.selectedOutputId)) {
-          state.selectedOutputId = state.midiOutputs[0].id;
-        }
-        midiOutSelect.value = state.selectedOutputId;
+      if (state.selectedOutputId !== prevOutId) {
+        const p = state.midiOutputs.find(o => o.id === state.selectedOutputId);
+        if (p) logMidi(`Using output "${p.name || p.id}"`);
       }
 
       bindSelectedMidiInput();
       updateMidiStatusBadge();
     }
 
+    // Make sure exactly the selected input is listening, and that it is open
     function bindSelectedMidiInput() {
       if (!state.midiAccess) return;
-      // Clear previous listeners
       for (const input of state.midiAccess.inputs.values()) {
-        input.onmidimessage = null;
-      }
-      const activeInput = state.midiInputs.find(i => i.id === state.selectedInputId);
-      if (activeInput) {
-        activeInput.onmidimessage = handleIncomingMidiMessage;
+        const selected = input.id === state.selectedInputId && input.state !== 'disconnected';
+        if (selected) {
+          if (input.onmidimessage !== handleIncomingMidiMessage) {
+            input.onmidimessage = handleIncomingMidiMessage;   // assigning the handler also opens the port
+          }
+          if (input.connection === 'closed' && typeof input.open === 'function') {
+            try {
+              const r = input.open();
+              if (r && r.catch) r.catch(() => {});
+            } catch (e) {}
+          }
+        } else if (input.onmidimessage) {
+          input.onmidimessage = null;
+        }
       }
     }
+
+    // Watchdog: browsers (especially Android) can drop or close a USB MIDI port without a clear event
+    let midiLastSig = '';
+    let midiHadInput = false;
+    let midiNextReacquireAt = 0;
+    let midiAutoReacquires = 0;
+    const MIDI_MAX_AUTO_REACQUIRES = 3;
+
+    function midiPortSignature() {
+      const a = state.midiAccess;
+      if (!a) return '';
+      const f = (m) => Array.from(m.values()).map(p => `${p.id}|${p.state}|${p.connection}`).join(',');
+      return f(a.inputs) + '#' + f(a.outputs);
+    }
+
+    function midiWatchdog() {
+      if (!state.midiAccess) return;
+
+      const sig = midiPortSignature();
+      if (sig !== midiLastSig) {
+        midiLastSig = sig;
+        refreshMidiPorts();
+      }
+
+      const inp = state.midiInputs.find(i => i.id === state.selectedInputId);
+      if (inp) {
+        midiHadInput = true;
+        midiNextReacquireAt = 0;
+        midiAutoReacquires = 0;
+        if (inp.onmidimessage !== handleIncomingMidiMessage || inp.connection === 'closed') {
+          logMidi('Input listener had dropped: re-attaching');
+          bindSelectedMidiInput();
+        }
+      } else if (midiHadInput && midiAutoReacquires < MIDI_MAX_AUTO_REACQUIRES) {
+        // The piano is gone from the port list: after a few seconds ask the browser for a fresh MIDIAccess
+        const now = performance.now();
+        if (!midiNextReacquireAt) {
+          midiNextReacquireAt = now + 4000;
+        } else if (now >= midiNextReacquireAt) {
+          midiAutoReacquires++;
+          midiNextReacquireAt = now + 10000;
+          reacquireMidi(`piano not seen, attempt ${midiAutoReacquires}/${MIDI_MAX_AUTO_REACQUIRES}`);
+        }
+      }
+    }
+    setInterval(midiWatchdog, 1500);
+
+    // Back from the background (screen was off / another app): ports are often dead by then
+    let midiHiddenAt = 0;
+    let midiBackgroundReacquireMs = 15000;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        midiHiddenAt = performance.now();
+        return;
+      }
+      requestWakeLock();
+      if (!state.midiAccess) return;
+      const away = midiHiddenAt ? performance.now() - midiHiddenAt : 0;
+      midiHiddenAt = 0;
+      logMidi(`Page visible again after ${Math.round(away / 1000)} s`);
+      releaseAllUserKeys();
+      if (away > midiBackgroundReacquireMs) {
+        midiAutoReacquires = 0;
+        reacquireMidi('back from the background');
+      } else {
+        midiWatchdog();
+      }
+    });
+
+    // ---- Keep the screen on (a tablet that locks while you play also drops the USB MIDI link)
+    let wakeLockSentinel = null;
+    async function requestWakeLock() {
+      if (!state.settings.keepAwake || !('wakeLock' in navigator)) return;
+      if (document.visibilityState !== 'visible' || wakeLockSentinel) return;
+      try {
+        const s = await navigator.wakeLock.request('screen');
+        wakeLockSentinel = s;
+        s.addEventListener('release', () => { if (wakeLockSentinel === s) wakeLockSentinel = null; });
+      } catch (e) {
+        wakeLockSentinel = null;
+      }
+    }
+    function releaseWakeLock() {
+      const s = wakeLockSentinel;
+      wakeLockSentinel = null;
+      if (s) {
+        try { s.release(); } catch (e) {}
+      }
+    }
+    // Some browsers only grant it after a tap
+    document.addEventListener('pointerdown', () => requestWakeLock(), { passive: true });
 
     function updateMidiStatusBadge() {
       const inPort = state.midiInputs.find(i => i.id === state.selectedInputId);
@@ -1304,19 +1491,18 @@
       }
     }
 
-    // MIDI click: notes played through the piano itself.
-    // The LP-380's built-in metronome only has a panel button, so we play click notes instead.
-    const MIDI_CLICKS = {
-      piano:     { channel: 0, accent: 108, normal: 103, velAccent: 110, velNormal: 85, velSub: 50, lenMs: 60 }, // top keys = short "tick"
-      woodblock: { channel: 9, accent: 76,  normal: 77,  velAccent: 110, velNormal: 85, velSub: 50, lenMs: 60 }  // GM hi/lo wood block
-    };
+    // MIDI click.
+    //  'gm'    : General MIDI percussion channel 10, note 34 = Metronome Bell (bar start), note 33 = Metronome Click
+    //  'piano' : fallback - short notes on the highest piano keys
+    const MIDI_CLICK_GM = { channel: 9, accentNote: 34, beatNote: 33, velAccent: 115, velBeat: 95, velSub: 60, lenMs: 80 };
+    const MIDI_CLICK_PIANO = { channel: 0, accentNote: 108, beatNote: 103, velAccent: 110, velBeat: 85, velSub: 50, lenMs: 60 };
 
     function sendMidiClick(delaySec, kind) {
       const out = state.midiOutputs.find(o => o.id === state.selectedOutputId);
       if (!out) return;
-      const c = MIDI_CLICKS[state.settings.midiClickSound] || MIDI_CLICKS.piano;
-      const note = kind === 'accent' ? c.accent : c.normal;
-      const vel = kind === 'accent' ? c.velAccent : (kind === 'sub' ? c.velSub : c.velNormal);
+      const c = state.settings.midiClickMode === 'piano' ? MIDI_CLICK_PIANO : MIDI_CLICK_GM;
+      const note = kind === 'accent' ? c.accentNote : c.beatNote;
+      const vel = kind === 'accent' ? c.velAccent : (kind === 'sub' ? c.velSub : c.velBeat);
       const t = performance.now() + Math.max(0, delaySec) * 1000; // Web MIDI timestamps give sample-accurate scheduling
       try {
         out.send([0x90 | c.channel, note, vel], t);
@@ -1480,6 +1666,7 @@
       state.waitingForUser = false;
       state.stepFreshPresses.clear();
       state.matchedHeld.clear();
+      state.learnStats = { hit: 0, missed: 0 };
       state.countIn = null;
       anchorLoop();
       alignMetronome();
@@ -1553,6 +1740,14 @@
       }
 
       for (const reqPitch of step.requiredPitches) state.matchedHeld.add(reqPitch);
+      state.learnStats.hit++;
+      advanceStep(true);
+    }
+
+    // Move on to the next step after it was played (matched) or, with wait mode off, let go (missed).
+    // Returns true when the piece is over and playback was stopped.
+    function advanceStep(matched) {
+      if (!matched) state.learnStats.missed++;
       state.currentStepIndex++;
       state.waitingForUser = false;
       state.stepFreshPresses.clear();
@@ -1565,15 +1760,18 @@
           state.currentStepIndex = firstLoopStepIndex(loop);
           state.loopAhead = true;
         }
-        return;
+        return false;
       }
 
       if (state.currentStepIndex >= state.learnSteps.length) {
         // Reached end of piece
         state.currentTick = state.song.totalTicks;
         setPlaying(false);
-        showToast('Piece completed');
+        const { hit, missed } = state.learnStats;
+        showToast(missed ? `Done: ${hit} of ${hit + missed} notes in time` : 'Piece completed');
+        return true;
       }
+      return false;
     }
 
     // Send Note On / Note Off for notes crossed between two song positions (play mode)
@@ -1671,17 +1869,31 @@
           }
 
           const tolTicks = state.settings.toleranceMs * ticksPerMs * state.speed;
-          const refTick = step ? step.tick + (state.loopAhead ? loopLen : 0) : Infinity;
-          const stopTick = refTick + tolTicks;
+          const stepRef = (s) => s ? s.tick + (state.loopAhead ? loopLen : 0) : Infinity;
+          let refTick = stepRef(step);
+          let stopTick = refTick + tolTicks;
 
-          if (step && state.currentTick > stopTick) {
-            // Too late: halt exactly on the missed note and wait for the right key(s)
-            state.currentTick = refTick;
-            state.waitingForUser = true;
-            state.stepFreshPresses.clear();
-          } else if (state.settings.metronome) {
+          // Notes you are later than the tolerance for
+          let guard = 0;
+          while (step && state.currentTick > stopTick && guard++ < 64) {
+            if (state.settings.waitMode) {
+              // Wait mode: halt exactly on the missed note and wait for the right key(s)
+              state.currentTick = refTick;
+              state.waitingForUser = true;
+              state.stepFreshPresses.clear();
+              break;
+            }
+            // Wait mode off: the music keeps flowing and the note counts as missed
+            if (advanceStep(false)) return;
+            step = state.learnSteps[state.currentStepIndex];
+            refTick = stepRef(step);
+            stopTick = refTick + tolTicks;
+          }
+
+          if (!state.waitingForUser && state.settings.metronome) {
             const lookTicks = 80 * ticksPerMs * state.speed; // ~80 ms look-ahead for sample-accurate clicks
-            let horizon = Math.min(state.currentTick + lookTicks, stopTick);
+            let horizon = state.currentTick + lookTicks;
+            if (state.settings.waitMode) horizon = Math.min(horizon, stopTick);
             if (loop) horizon = Math.min(horizon, loop.end);
             scheduleMetronome(horizon, ticksPerMs);
           }
@@ -2648,13 +2860,22 @@
       kbWrap.style.display = state.settings.showKeyboard ? '' : 'none';
       handSelect.value = state.settings.hand;
       setMetroOutEl.value = state.settings.metronomeOutput;
-      setMidiClickEl.value = state.settings.midiClickSound;
+      setMidiClickEl.value = state.settings.midiClickMode;
+      setWaitModeEl.checked = !!state.settings.waitMode;
+      setKeepAwakeEl.checked = !!state.settings.keepAwake;
+      updateToleranceHint();
       setSubdivEl.value = String(state.settings.clickSubdiv);
       setClickSoundEl.value = state.settings.clickSound;
       setClickVolEl.value = state.settings.clickVolume;
       clickVolValueEl.textContent = state.settings.clickVolume + '%';
       updateOutputRows();
       updateHandSettingsUI();
+    }
+
+    function updateToleranceHint() {
+      tolHintEl.textContent = state.settings.waitMode
+        ? 'Playback only stops and waits for you once you are later than this. Smaller = stricter.'
+        : 'Wait is off: the music never stops. A note you play later than this counts as missed.';
     }
 
     // Show only the controls that matter for the chosen metronome output
@@ -2723,8 +2944,29 @@
       saveSettings();
     });
     setMidiClickEl.addEventListener('change', () => {
-      state.settings.midiClickSound = setMidiClickEl.value;
+      state.settings.midiClickMode = setMidiClickEl.value;
       saveSettings();
+    });
+    setWaitModeEl.addEventListener('change', () => {
+      state.settings.waitMode = setWaitModeEl.checked;
+      if (!state.settings.waitMode && state.waitingForUser) {
+        // Turned off while stopped on a note: carry on (the note stays playable until it is too late)
+        state.waitingForUser = false;
+        state.lastFrameTime = performance.now();
+      }
+      updateToleranceHint();
+      saveSettings();
+    });
+    setKeepAwakeEl.addEventListener('change', () => {
+      state.settings.keepAwake = setKeepAwakeEl.checked;
+      saveSettings();
+      if (state.settings.keepAwake) requestWakeLock(); else releaseWakeLock();
+    });
+    midiReconnectBtn.addEventListener('click', () => {
+      midiAutoReacquires = 0;
+      releaseAllUserKeys();
+      if (state.midiAccess) reacquireMidi('manual');
+      else initWebMIDI();
     });
     testClickBtn.addEventListener('click', () => {
       ensureAudio();
@@ -2790,6 +3032,9 @@
 
     midiInSelect.addEventListener('change', () => {
       state.selectedInputId = midiInSelect.value;
+      const p = state.midiInputs.find(i => i.id === state.selectedInputId);
+      if (p) { state.settings.midiInName = p.name || ''; saveSettings(); }
+      releaseAllUserKeys();
       bindSelectedMidiInput();
       updateMidiStatusBadge();
     });
@@ -2797,6 +3042,8 @@
     midiOutSelect.addEventListener('change', () => {
       stopAllMidiNotes();
       state.selectedOutputId = midiOutSelect.value;
+      const p = state.midiOutputs.find(o => o.id === state.selectedOutputId);
+      if (p) { state.settings.midiOutName = p.name || ''; saveSettings(); }
       updateMidiStatusBadge();
     });
 
@@ -2893,6 +3140,7 @@
 
       // Initialize USB MIDI ports
       initWebMIDI();
+      requestWakeLock();
 
       requestAnimationFrame(mainLoop);
     };
