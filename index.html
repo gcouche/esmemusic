@@ -112,6 +112,15 @@
         <option value="left">Left hand</option>
       </select>
 
+      <!-- Loop (a bar, half a bar, 2 or 4 bars) -->
+      <select id="loopSelect" aria-label="Loop" class="px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800 focus:outline-none">
+        <option value="0">Loop: off</option>
+        <option value="0.5">Loop ½ bar</option>
+        <option value="1">Loop 1 bar</option>
+        <option value="2">Loop 2 bars</option>
+        <option value="4">Loop 4 bars</option>
+      </select>
+
       <!-- Play/Pause & Restart -->
       <div class="inline-flex items-center gap-1">
         <button id="playPauseBtn" type="button" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs sm:text-sm font-medium shadow-sm transition min-w-[82px]">
@@ -140,11 +149,11 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
           </svg>
         </button>
-        <div id="settingsPopover" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] p-4 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30 text-sm space-y-3">
-          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Learn mode</p>
+        <div id="settingsPopover" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] max-h-[80vh] overflow-y-auto p-4 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30 text-sm space-y-3">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Metronome</p>
 
           <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
-            <span class="text-stone-800">Metronome</span>
+            <span class="text-stone-800">Metronome (Learn mode)</span>
             <input id="setMetronome" type="checkbox" class="w-5 h-5 accent-emerald-800" />
           </label>
 
@@ -154,12 +163,41 @@
           </label>
 
           <div>
+            <label for="setSubdiv" class="block text-stone-800 mb-1">Clicks per beat</label>
+            <select id="setSubdiv" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
+              <option value="1">1 – beats only</option>
+              <option value="2">2 – eighths</option>
+              <option value="3">3 – triplets</option>
+              <option value="4">4 – sixteenths</option>
+            </select>
+            <p class="mt-1 text-[11px] leading-relaxed text-stone-500">Extra clicks are softer. The speed does not change.</p>
+          </div>
+
+          <div>
             <label for="setMetroOut" class="block text-stone-800 mb-1">Metronome sound</label>
             <select id="setMetroOut" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
               <option value="audio">Audio (tablet / USB audio)</option>
               <option value="midi">MIDI → piano</option>
               <option value="both">Both</option>
             </select>
+          </div>
+
+          <div id="audioClickRows" class="space-y-3">
+            <div>
+              <label for="setClickSound" class="block text-stone-800 mb-1">Audio click sound</label>
+              <select id="setClickSound" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
+                <option value="beep">Beep</option>
+                <option value="wood">Wood block</option>
+                <option value="tick">Tick</option>
+              </select>
+            </div>
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-stone-800">Audio click volume</span>
+                <span id="clickVolValue" class="font-semibold text-stone-800 tabular-nums">100%</span>
+              </div>
+              <input id="setClickVol" type="range" min="0" max="300" step="5" value="100" class="w-full mt-2 accent-emerald-800" />
+            </div>
           </div>
 
           <div id="midiClickRow">
@@ -175,6 +213,9 @@
             <p class="text-[11px] leading-relaxed text-stone-500">MIDI mode plays click notes through the piano. Which speaker the audio mode uses is decided by Android.</p>
           </div>
 
+          <hr class="border-[#DFD6C5]" />
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Learn mode</p>
+
           <div>
             <div class="flex items-center justify-between">
               <span class="text-stone-800">Late tolerance</span>
@@ -183,6 +224,26 @@
             <input id="setTolerance" type="range" min="0" max="1000" step="25" value="200" class="w-full mt-2 accent-emerald-800" />
             <p class="mt-1 text-[11px] leading-relaxed text-stone-500">
               Playback only stops and waits for you once you are later than this. Smaller = stricter.
+            </p>
+          </div>
+
+          <hr class="border-[#DFD6C5]" />
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Left / right hand</p>
+
+          <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+            <span class="text-stone-800">Use MIDI tracks as hands</span>
+            <input id="setHandsTracks" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+          </label>
+          <p id="handsInfo" class="text-[11px] leading-relaxed text-stone-500"></p>
+
+          <div id="splitRow">
+            <div class="flex items-center justify-between">
+              <span class="text-stone-800">Split point</span>
+              <span id="splitValue" class="font-semibold text-stone-800 tabular-nums">C4 (middle C)</span>
+            </div>
+            <input id="setSplit" type="range" min="48" max="72" step="1" value="60" class="w-full mt-2 accent-emerald-800" />
+            <p class="mt-1 text-[11px] leading-relaxed text-stone-500">
+              This note and above = right hand (treble staff), below = left hand (bass staff).
             </p>
           </div>
 
@@ -291,7 +352,16 @@
       kbRange: { lo: 36, hi: 96 },
 
       // Library
-      currentLibraryId: null
+      currentLibraryId: null,
+
+      // Audio chain for clicks
+      masterGain: null,
+      noiseBuffer: null,
+
+      // Loop (bars) - region is anchored to the bar under the playhead
+      loopBars: 0,             // 0 = off, 0.5 / 1 / 2 / 4
+      loop: null,              // { start, end } in ticks
+      loopAhead: false         // learn mode: current step already belongs to the next pass
     };
 
     // User settings (persisted in the browser)
@@ -300,6 +370,11 @@
       countIn: true,
       toleranceMs: 200,
       showKeyboard: true,
+      handsFromTracks: true,     // use separate MIDI tracks/channels as left/right hand when the file has them
+      handSplit: 60,             // otherwise: this pitch and above = right hand (60 = middle C)
+      clickSubdiv: 1,            // clicks per beat: 1 | 2 | 3 | 4
+      clickVolume: 100,          // audio click volume in %, 0..300
+      clickSound: 'beep',        // 'beep' | 'wood' | 'tick'  (audio clicks)
       hand: 'both',              // 'both' | 'right' | 'left'  (Learn mode)
       metronomeOutput: 'audio',  // 'audio' | 'midi' | 'both'
       midiClickSound: 'piano'    // 'piano' | 'woodblock'
@@ -307,6 +382,8 @@
     const ALLOWED_SETTINGS = {
       hand: ['both', 'right', 'left'],
       metronomeOutput: ['audio', 'midi', 'both'],
+      clickSound: ['beep', 'wood', 'tick'],
+      clickSubdiv: [1, 2, 3, 4],
       midiClickSound: ['piano', 'woodblock']
     };
     function loadSettings() {
@@ -316,6 +393,14 @@
         for (const key of Object.keys(ALLOWED_SETTINGS)) {
           if (!ALLOWED_SETTINGS[key].includes(merged[key])) merged[key] = DEFAULT_SETTINGS[key];
         }
+        merged.clickSubdiv = parseInt(merged.clickSubdiv, 10);
+        if (!ALLOWED_SETTINGS.clickSubdiv.includes(merged.clickSubdiv)) merged.clickSubdiv = 1;
+        merged.handsFromTracks = merged.handsFromTracks !== false;
+        merged.handSplit = Math.round(Number(merged.handSplit));
+        if (!Number.isFinite(merged.handSplit)) merged.handSplit = 60;
+        merged.handSplit = Math.max(48, Math.min(72, merged.handSplit));
+        merged.clickVolume = Math.max(0, Math.min(300, Number(merged.clickVolume)));
+        if (!Number.isFinite(merged.clickVolume)) merged.clickVolume = 100;
         return merged;
       } catch (e) {
         return { ...DEFAULT_SETTINGS };
@@ -368,6 +453,17 @@
     const setMidiClickEl = document.getElementById('setMidiClick');
     const midiClickRow = document.getElementById('midiClickRow');
     const testClickBtn = document.getElementById('testClickBtn');
+    const setSubdivEl = document.getElementById('setSubdiv');
+    const setClickSoundEl = document.getElementById('setClickSound');
+    const setClickVolEl = document.getElementById('setClickVol');
+    const clickVolValueEl = document.getElementById('clickVolValue');
+    const audioClickRows = document.getElementById('audioClickRows');
+    const loopSelect = document.getElementById('loopSelect');
+    const setHandsTracksEl = document.getElementById('setHandsTracks');
+    const handsInfoEl = document.getElementById('handsInfo');
+    const splitRowEl = document.getElementById('splitRow');
+    const setSplitEl = document.getElementById('setSplit');
+    const splitValueEl = document.getElementById('splitValue');
 
     let toastTimer = null;
     function showToast(msg) {
@@ -629,6 +725,7 @@
       let timeSig = { numerator: 4, denominator: 4 };
       let keySig = { sf: 0, mi: 0 };
       let foundTrackName = '';
+      const trackNames = [];   // name of every track (for spotting "Left Hand" / "Right Hand" tracks)
 
       for (let t = 0; t < numTracks; t++) {
         if (offset + 8 > view.byteLength) break;
@@ -665,6 +762,15 @@
             const metaType = view.getUint8(offset++);
             const metaLen = readVarLen(trackEnd);
             const metaEnd = Math.min(trackEnd, offset + metaLen);
+
+            if (metaType === 0x03 && metaLen > 0 && !trackNames[t]) {
+              let tn = '';
+              for (let i = 0; i < metaLen && (offset + i) < metaEnd; i++) {
+                const c = view.getUint8(offset + i);
+                if (c >= 32 && c < 127) tn += String.fromCharCode(c);
+              }
+              trackNames[t] = tn.trim();
+            }
 
             if (metaType === 0x51 && metaLen === 3) {
               const usPerQuarter = (view.getUint8(offset) << 16) |
@@ -710,9 +816,9 @@
               // Skip GM percussion channel 10 (index 9) so drum hits don't clutter sheet music
               if (channel !== 9) {
                 if (cmd === 0x90 && d2 > 0) {
-                  rawEvents.push({ type: 'on', tick, pitch: d1, velocity: d2, channel });
+                  rawEvents.push({ type: 'on', tick, pitch: d1, velocity: d2, channel, track: t });
                 } else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) {
-                  rawEvents.push({ type: 'off', tick, pitch: d1, velocity: 0, channel });
+                  rawEvents.push({ type: 'off', tick, pitch: d1, velocity: 0, channel, track: t });
                 }
               }
             }
@@ -733,7 +839,7 @@
       const notes = [];
 
       for (const ev of rawEvents) {
-        const key = `${ev.channel}_${ev.pitch}`;
+        const key = `${ev.track}_${ev.channel}_${ev.pitch}`;
         if (ev.type === 'on') {
           if (!openNotes.has(key)) openNotes.set(key, []);
           openNotes.get(key).push(ev);
@@ -746,6 +852,7 @@
               pitch: onEv.pitch,
               velocity: onEv.velocity,
               channel: onEv.channel,
+              track: onEv.track,
               startTick: onEv.tick,
               endTick: onEv.tick + durationTicks,
               durationTicks
@@ -761,6 +868,7 @@
             pitch: onEv.pitch,
             velocity: onEv.velocity,
             channel: onEv.channel,
+            track: onEv.track,
             startTick: onEv.tick,
             endTick: onEv.tick + ticksPerQuarter,
             durationTicks: ticksPerQuarter
@@ -798,15 +906,163 @@
         timeSig,
         keySig,
         tempos: cleanTempos,
-        notes
+        notes,
+        voices: buildVoices(notes, trackNames)
       };
     }
 
+    // A "voice" = one track/channel combination that carries notes
+    function buildVoices(notes, trackNames) {
+      const map = new Map();
+      for (const n of notes) {
+        const key = n.track + ':' + n.channel;
+        let v = map.get(key);
+        if (!v) {
+          v = { key, track: n.track, channel: n.channel, count: 0, sum: 0 };
+          map.set(key, v);
+        }
+        v.count++;
+        v.sum += n.pitch;
+      }
+      const voices = [...map.values()];
+      const perTrack = new Map();
+      voices.forEach(v => perTrack.set(v.track, (perTrack.get(v.track) || 0) + 1));
+      voices.forEach(v => {
+        v.mean = v.sum / v.count;
+        const base = trackNames[v.track] || `Track ${v.track + 1}`;
+        v.name = perTrack.get(v.track) > 1 ? `${base} (ch ${v.channel + 1})` : base;
+      });
+      return voices;
+    }
+
     // Build sequential chord/note steps for Learning Mode
-    // Which hand a note belongs to (same split as the sheet music: middle C and up = right hand)
+    // ---- Left / right hand assignment ------------------------------------------------
+    // Every note gets note.hand = 'left' | 'right'. The sheet (treble/bass staff), Learn mode and the dimming all use it.
+    //   1) If "Use MIDI tracks as hands" is on and the file has 2+ tracks/channels with notes, those decide.
+    //   2) Otherwise a fixed split pitch decides (default middle C = 60).
+    const LEFT_NAME_RE = /left|(^|[^a-z])lh([^a-z]|$)|bass/i;
+    const RIGHT_NAME_RE = /right|(^|[^a-z])rh([^a-z]|$)|treble/i;
+
+    function pitchLabel(p) {
+      const names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+      return names[p % 12] + (Math.floor(p / 12) - 1) + (p === 60 ? ' (middle C)' : '');
+    }
+
+    function computeVoiceHands(song) {
+      const voices = song.voices || [];
+      const total = song.notes.length;
+      const significant = voices.filter(v => v.count >= Math.max(4, total * 0.03));
+      if (significant.length < 2) return null;
+
+      const hands = new Map();
+      const named = { left: [], right: [] };
+      for (const v of significant) {
+        const isL = LEFT_NAME_RE.test(v.name);
+        const isR = RIGHT_NAME_RE.test(v.name);
+        if (isL && !isR) named.left.push(v);
+        else if (isR && !isL) named.right.push(v);
+      }
+      const avg = (arr) => arr.reduce((s, v) => s + v.mean, 0) / arr.length;
+
+      if (named.left.length && named.right.length) {
+        // Track names say it ("Left Hand", "RH", "Bass", "Treble" ...)
+        named.left.forEach(v => hands.set(v.key, 'left'));
+        named.right.forEach(v => hands.set(v.key, 'right'));
+        const lm = avg(named.left), rm = avg(named.right);
+        for (const v of significant) {
+          if (!hands.has(v.key)) hands.set(v.key, Math.abs(v.mean - lm) <= Math.abs(v.mean - rm) ? 'left' : 'right');
+        }
+      } else {
+        // No helpful names: the lower-pitched parts are the left hand, the higher-pitched ones the right hand
+        const means = significant.map(v => v.mean);
+        const mid = (Math.min(...means) + Math.max(...means)) / 2;
+        for (const v of significant) hands.set(v.key, v.mean < mid ? 'left' : 'right');
+      }
+
+      // Tiny stray parts follow whichever main part is closest in pitch
+      for (const v of voices) {
+        if (hands.has(v.key)) continue;
+        let best = significant[0];
+        for (const s of significant) if (Math.abs(s.mean - v.mean) < Math.abs(best.mean - v.mean)) best = s;
+        hands.set(v.key, hands.get(best.key));
+      }
+
+      if (new Set(hands.values()).size < 2) return null; // everything ended up in one hand: not useful
+      return hands;
+    }
+
+    function assignHands(song) {
+      const s = state.settings;
+      const voices = song.voices || [];
+      const voiceHands = s.handsFromTracks ? computeVoiceHands(song) : null;
+
+      if (voiceHands) {
+        for (const n of song.notes) {
+          n.hand = voiceHands.get(n.track + ':' + n.channel) || (n.pitch >= s.handSplit ? 'right' : 'left');
+        }
+        song.handInfo = {
+          mode: 'tracks',
+          parts: voices.map(v => `${v.name} → ${voiceHands.get(v.key)}`)
+        };
+      } else {
+        for (const n of song.notes) {
+          n.hand = n.pitch >= s.handSplit ? 'right' : 'left';
+        }
+        song.handInfo = {
+          mode: 'pitch',
+          reason: !s.handsFromTracks ? 'off' : (voices.length < 2 ? 'single' : 'unclear')
+        };
+      }
+    }
+
+    function updateHandSettingsUI() {
+      const s = state.settings;
+      setHandsTracksEl.checked = !!s.handsFromTracks;
+      setSplitEl.value = s.handSplit;
+      splitValueEl.textContent = pitchLabel(s.handSplit);
+
+      const info = state.song && state.song.handInfo;
+      let text = '';
+      let splitActive = true;
+      if (!info) {
+        text = '';
+      } else if (info.mode === 'tracks') {
+        const shown = info.parts.slice(0, 4).join(', ') + (info.parts.length > 4 ? ', …' : '');
+        text = `Hands taken from this file's parts: ${shown}.`;
+        splitActive = false;
+      } else if (info.reason === 'off') {
+        text = 'Off: the split point below is used.';
+      } else if (info.reason === 'single') {
+        text = 'This file has all notes in a single track, so the split point below is used.';
+      } else {
+        text = "This file has several tracks but they could not be told apart, so the split point below is used.";
+      }
+      handsInfoEl.textContent = text;
+      setSplitEl.disabled = !splitActive;
+      splitRowEl.style.opacity = splitActive ? '' : '0.45';
+    }
+
+    // Re-derive hands after the settings changed, keeping the current position
+    function refreshHands() {
+      if (!state.song) return;
+      assignHands(state.song);
+      let steps = buildLearnSteps(state.song);
+      if (!steps.length && state.settings.hand !== 'both') {
+        state.settings.hand = 'both';
+        handSelect.value = 'both';
+        steps = buildLearnSteps(state.song);
+        saveSettings();
+        showToast('No notes for that hand with this split: showing both hands');
+      }
+      state.learnSteps = steps;
+      if (state.mode === 'learn') syncLearnStepToCurrentTick();
+      updateHandSettingsUI();
+    }
+
+    // Which hand a note belongs to
     function noteInHand(note, hand) {
-      if (hand === 'right') return note.pitch >= 60;
-      if (hand === 'left') return note.pitch < 60;
+      if (hand === 'right') return note.hand === 'right';
+      if (hand === 'left') return note.hand === 'left';
       return true;
     }
 
@@ -960,7 +1216,10 @@
       if (!state.audioCtx) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (AC) {
-          try { state.audioCtx = new AC({ latencyHint: 'interactive' }); } catch (e) { state.audioCtx = null; }
+          try {
+            state.audioCtx = new AC({ latencyHint: 'interactive' });
+            setupAudioChain();
+          } catch (e) { state.audioCtx = null; }
         }
       }
       if (state.audioCtx && state.audioCtx.state === 'suspended') {
@@ -969,36 +1228,95 @@
       return state.audioCtx;
     }
 
-    function playClick(delaySec, accent) {
+    // click -> master volume -> limiter -> speakers (the limiter lets the volume go well above 100% without harsh clipping)
+    function setupAudioChain() {
       const ac = state.audioCtx;
-      if (!ac) return;
+      state.masterGain = ac.createGain();
+      const limiter = ac.createDynamicsCompressor();
+      limiter.threshold.value = -3;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.001;
+      limiter.release.value = 0.05;
+      state.masterGain.connect(limiter);
+      limiter.connect(ac.destination);
+      applyClickVolume();
+
+      const len = Math.floor(ac.sampleRate * 0.05);
+      const buf = ac.createBuffer(1, len, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      state.noiseBuffer = buf;
+    }
+
+    function applyClickVolume() {
+      if (state.masterGain) state.masterGain.gain.value = state.settings.clickVolume / 100;
+    }
+
+    // kind: 'accent' (bar start) | 'beat' | 'sub' (in-between click)
+    function playClick(delaySec, kind) {
+      const ac = state.audioCtx;
+      if (!ac || !state.masterGain) return;
       const t = ac.currentTime + Math.max(0, delaySec);
-      const osc = ac.createOscillator();
-      const gain = ac.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = accent ? 1568 : 1046;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(accent ? 0.9 : 0.6, t + 0.002);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-      osc.connect(gain);
-      gain.connect(ac.destination);
-      osc.start(t);
-      osc.stop(t + 0.06);
+      const level = kind === 'accent' ? 1 : (kind === 'sub' ? 0.4 : 0.7);
+      const sound = state.settings.clickSound;
+      const env = ac.createGain();
+      env.connect(state.masterGain);
+
+      if (sound === 'tick') {
+        // Short filtered noise burst
+        const src = ac.createBufferSource();
+        src.buffer = state.noiseBuffer;
+        const bp = ac.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = kind === 'accent' ? 3600 : (kind === 'sub' ? 2400 : 3000);
+        bp.Q.value = 1.1;
+        env.gain.setValueAtTime(level * 3, t);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+        src.connect(bp);
+        bp.connect(env);
+        src.start(t);
+        src.stop(t + 0.04);
+      } else if (sound === 'wood') {
+        // Pitched "tok" with a quick downward chirp
+        const osc = ac.createOscillator();
+        osc.type = 'triangle';
+        const f = kind === 'accent' ? 1250 : (kind === 'sub' ? 760 : 940);
+        osc.frequency.setValueAtTime(f, t);
+        osc.frequency.exponentialRampToValueAtTime(f * 0.65, t + 0.035);
+        env.gain.setValueAtTime(0.0001, t);
+        env.gain.exponentialRampToValueAtTime(level * 1.3, t + 0.001);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+        osc.connect(env);
+        osc.start(t);
+        osc.stop(t + 0.08);
+      } else {
+        // Beep
+        const osc = ac.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = kind === 'accent' ? 1568 : (kind === 'sub' ? 880 : 1046);
+        env.gain.setValueAtTime(0.0001, t);
+        env.gain.exponentialRampToValueAtTime(level * 0.9, t + 0.002);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+        osc.connect(env);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
     }
 
     // MIDI click: notes played through the piano itself.
     // The LP-380's built-in metronome only has a panel button, so we play click notes instead.
     const MIDI_CLICKS = {
-      piano:     { channel: 0, accent: 108, normal: 103, velAccent: 110, velNormal: 85, lenMs: 60 }, // top keys = short "tick"
-      woodblock: { channel: 9, accent: 76,  normal: 77,  velAccent: 110, velNormal: 85, lenMs: 60 }  // GM hi/lo wood block
+      piano:     { channel: 0, accent: 108, normal: 103, velAccent: 110, velNormal: 85, velSub: 50, lenMs: 60 }, // top keys = short "tick"
+      woodblock: { channel: 9, accent: 76,  normal: 77,  velAccent: 110, velNormal: 85, velSub: 50, lenMs: 60 }  // GM hi/lo wood block
     };
 
-    function sendMidiClick(delaySec, accent) {
+    function sendMidiClick(delaySec, kind) {
       const out = state.midiOutputs.find(o => o.id === state.selectedOutputId);
       if (!out) return;
       const c = MIDI_CLICKS[state.settings.midiClickSound] || MIDI_CLICKS.piano;
-      const note = accent ? c.accent : c.normal;
-      const vel = accent ? c.velAccent : c.velNormal;
+      const note = kind === 'accent' ? c.accent : c.normal;
+      const vel = kind === 'accent' ? c.velAccent : (kind === 'sub' ? c.velSub : c.velNormal);
       const t = performance.now() + Math.max(0, delaySec) * 1000; // Web MIDI timestamps give sample-accurate scheduling
       try {
         out.send([0x90 | c.channel, note, vel], t);
@@ -1006,10 +1324,10 @@
       } catch (e) {}
     }
 
-    function clickOut(delaySec, accent) {
+    function clickOut(delaySec, kind) {
       const mode = state.settings.metronomeOutput;
-      if (mode === 'audio' || mode === 'both') playClick(delaySec, accent);
-      if (mode === 'midi' || mode === 'both') sendMidiClick(delaySec, accent);
+      if (mode === 'audio' || mode === 'both') playClick(delaySec, kind);
+      if (mode === 'midi' || mode === 'both') sendMidiClick(delaySec, kind);
     }
 
     // One click per beat; compound metres (6/8, 9/8, 12/8) click on the dotted quarter
@@ -1024,10 +1342,21 @@
       return Math.max(1, Math.round(state.song.ticksPerMeasure / getBeatTicks()));
     }
 
+    // Distance between clicks: a beat divided by "clicks per beat"
+    function getClickTicks() {
+      return getBeatTicks() / Math.max(1, state.settings.clickSubdiv | 0);
+    }
+
     function alignMetronome() {
       if (!state.song) return;
-      const bt = getBeatTicks();
-      state.nextBeatTick = Math.ceil((state.currentTick - 0.001) / bt) * bt;
+      const ct = getClickTicks();
+      state.nextBeatTick = Math.ceil((state.currentTick - 0.001) / ct) * ct;
+    }
+
+    function clickKind(tick) {
+      if (isDownbeat(tick)) return 'accent';
+      const r = tick / getBeatTicks();
+      return Math.abs(r - Math.round(r)) < 0.02 ? 'beat' : 'sub';
     }
 
     function isDownbeat(tick) {
@@ -1038,13 +1367,13 @@
 
     // Schedule clicks for every beat up to horizonTick (called each frame with a small look-ahead)
     function scheduleMetronome(horizonTick, tpms) {
-      const bt = getBeatTicks();
+      const ct = getClickTicks();
       let guard = 0;
       while (state.nextBeatTick < horizonTick && guard++ < 16) {
         const tick = state.nextBeatTick;
         const delaySec = Math.max(0, (tick - state.currentTick) / (tpms * state.speed)) / 1000;
-        clickOut(delaySec, isDownbeat(tick));
-        state.nextBeatTick += bt;
+        clickOut(delaySec, clickKind(tick));
+        state.nextBeatTick += ct;
       }
     }
 
@@ -1055,7 +1384,7 @@
       const beatMs = bt / (ticksPerMsAt(state.currentTick) * state.speed);
       const leadSec = 0.05;
       for (let i = 0; i < beats; i++) {
-        clickOut(leadSec + (i * beatMs) / 1000, i === 0);
+        clickOut(leadSec + (i * beatMs) / 1000, i === 0 ? 'accent' : 'beat');
       }
       const startMs = performance.now() + leadSec * 1000;
       state.countIn = { startMs, beatMs, beats, endMs: startMs + beats * beatMs };
@@ -1065,11 +1394,58 @@
       const onBeat = Math.abs(beatPos - Math.round(beatPos)) < 0.01;
       if (onBeat && state.settings.metronome) {
         const tick = Math.round(beatPos) * bt;
-        clickOut(leadSec + (beats * beatMs) / 1000, isDownbeat(tick));
-        state.nextBeatTick = tick + bt;
+        clickOut(leadSec + (beats * beatMs) / 1000, clickKind(tick));
+        state.nextBeatTick = tick + getClickTicks();
       } else {
         alignMetronome();
       }
+    }
+
+    // ---- Loop: repeat a half bar / 1 / 2 / 4 bars, anchored at the bar under the playhead
+    function getActiveLoop() {
+      return (state.loopBars > 0 && state.loop) ? state.loop : null;
+    }
+
+    function anchorLoop() {
+      if (!state.song || !(state.loopBars > 0)) {
+        state.loop = null;
+        return;
+      }
+      const m = state.song.ticksPerMeasure;
+      const seg = m * state.loopBars;
+      const unit = state.loopBars < 1 ? seg : m; // half bar snaps to half bars, longer loops start on a bar line
+      let start = Math.floor((state.currentTick + 1) / unit) * unit;
+      let end = start + seg;
+      if (end > state.song.totalTicks) {
+        start = Math.floor(Math.max(0, state.song.totalTicks - seg) / unit) * unit;
+        end = Math.min(state.song.totalTicks, start + seg);
+      }
+      state.loop = { start, end };
+      state.loopAhead = false;
+    }
+
+    function ensureLoopCoversPlayhead() {
+      const loop = getActiveLoop();
+      if (loop && (state.currentTick < loop.start - 1 || state.currentTick >= loop.end)) {
+        anchorLoop();
+      }
+    }
+
+    function firstLoopStepIndex(loop) {
+      const i = state.learnSteps.findIndex(s => s.tick >= loop.start - 5);
+      if (i === -1 || state.learnSteps[i].tick >= loop.end) return state.learnSteps.length;
+      return i;
+    }
+
+    function describeLoop() {
+      const loop = getActiveLoop();
+      if (!loop) return 'Loop off';
+      const m = state.song.ticksPerMeasure;
+      const bar = Math.floor(loop.start / m) + 1;
+      if (state.loopBars < 1) {
+        return `Looping ${((loop.start / m) % 1) < 0.25 ? 'first' : 'second'} half of bar ${bar}`;
+      }
+      return state.loopBars === 1 ? `Looping bar ${bar}` : `Looping bars ${bar}–${bar + state.loopBars - 1}`;
     }
 
     // ---- Transport
@@ -1081,6 +1457,7 @@
         if (state.currentTick >= state.song.totalTicks - 10) {
           resetToStart();
         }
+        ensureLoopCoversPlayhead();
         state.isPlaying = true;
         state.lastFrameTime = performance.now();
 
@@ -1104,6 +1481,7 @@
       state.stepFreshPresses.clear();
       state.matchedHeld.clear();
       state.countIn = null;
+      anchorLoop();
       alignMetronome();
       if (state.mode === 'learn' && state.isPlaying) {
         beginLearnRun();
@@ -1133,6 +1511,7 @@
       }
       state.currentStepIndex = idx;
       state.waitingForUser = false;
+      state.loopAhead = false;
       state.stepFreshPresses.clear();
     }
 
@@ -1143,7 +1522,9 @@
 
     // Milliseconds (real time) between the playhead and the step. Negative = step still ahead.
     function learnDeltaMs(step) {
-      let d = (state.currentTick - step.tick) / (ticksPerMsAt(state.currentTick) * state.speed);
+      const loop = getActiveLoop();
+      const refTick = step.tick + ((loop && state.loopAhead) ? (loop.end - loop.start) : 0);
+      let d = (state.currentTick - refTick) / (ticksPerMsAt(state.currentTick) * state.speed);
       if (state.countIn) {
         d -= Math.max(0, state.countIn.endMs - performance.now());
       }
@@ -1176,11 +1557,40 @@
       state.waitingForUser = false;
       state.stepFreshPresses.clear();
 
+      const loop = getActiveLoop();
+      if (loop) {
+        // Looping never "completes": after the last note of the loop, wait for the first note of the next pass
+        const next = state.learnSteps[state.currentStepIndex];
+        if (!state.loopAhead && (!next || next.tick >= loop.end)) {
+          state.currentStepIndex = firstLoopStepIndex(loop);
+          state.loopAhead = true;
+        }
+        return;
+      }
+
       if (state.currentStepIndex >= state.learnSteps.length) {
         // Reached end of piece
         state.currentTick = state.song.totalTicks;
         setPlaying(false);
         showToast('Piece completed');
+      }
+    }
+
+    // Send Note On / Note Off for notes crossed between two song positions (play mode)
+    function triggerNotesBetween(prevTick, nextTick) {
+      for (const note of state.song.notes) {
+        if (note.startTick >= prevTick && note.startTick < nextTick) {
+          // Re-trigger cleanly if already sounding
+          if (state.soundingOutNotes.has(note.pitch)) {
+            sendMidiNoteOff(note.pitch, note.channel);
+          }
+          sendMidiNoteOn(note.pitch, note.velocity, note.channel);
+        }
+        if (note.endTick > prevTick && note.endTick <= nextTick) {
+          if (state.soundingOutNotes.has(note.pitch)) {
+            sendMidiNoteOff(note.pitch, note.channel);
+          }
+        }
       }
     }
 
@@ -1212,51 +1622,68 @@
 
       if (state.mode === 'play') {
         const prevTick = state.currentTick;
-        const nextTick = Math.min(state.song.totalTicks, prevTick + deltaTicks);
+        const loop = getActiveLoop();
+        const rawNext = Math.min(state.song.totalTicks, prevTick + deltaTicks);
 
-        // Trigger MIDI Note On / Note Off for notes crossed between prevTick and nextTick
-        for (const note of state.song.notes) {
-          if (note.startTick >= prevTick && note.startTick < nextTick) {
-            // Re-trigger cleanly if already sounding
-            if (state.soundingOutNotes.has(note.pitch)) {
-              sendMidiNoteOff(note.pitch, note.channel);
-            }
-            sendMidiNoteOn(note.pitch, note.velocity, note.channel);
+        if (loop && prevTick < loop.end && rawNext >= loop.end) {
+          // Reached the end of the loop: finish this pass, silence, and jump back
+          triggerNotesBetween(prevTick, loop.end);
+          stopAllMidiNotes();
+          const loopLen = loop.end - loop.start;
+          const wrapped = loop.start + ((rawNext - loop.end) % loopLen);
+          triggerNotesBetween(loop.start, wrapped);
+          state.currentTick = wrapped;
+        } else {
+          triggerNotesBetween(prevTick, rawNext);
+          state.currentTick = rawNext;
+          if (state.currentTick >= state.song.totalTicks) {
+            setPlaying(false);
           }
-          if (note.endTick > prevTick && note.endTick <= nextTick) {
-            if (state.soundingOutNotes.has(note.pitch)) {
-              sendMidiNoteOff(note.pitch, note.channel);
-            }
-          }
-        }
-
-        state.currentTick = nextTick;
-
-        if (state.currentTick >= state.song.totalTicks) {
-          setPlaying(false);
         }
       } else if (state.mode === 'learn') {
         // Learning mode: the playhead flows at the piece's own tempo (with metronome).
         // It only stops on a note once you are later than the tolerance setting.
-        const step = state.learnSteps[state.currentStepIndex];
-        if (!step) {
+        const loop = getActiveLoop();
+        const loopLen = loop ? loop.end - loop.start : 0;
+        let step = state.learnSteps[state.currentStepIndex];
+        if (!step && !loop) {
           setPlaying(false);
           return;
         }
 
         if (!state.waitingForUser) {
           state.currentTick += deltaTicks;
-          const tolTicks = state.settings.toleranceMs * ticksPerMs * state.speed;
-          const stopTick = step.tick + tolTicks;
 
-          if (state.currentTick > stopTick) {
+          // Loop wrap: only once every note of the loop has been played
+          if (loop && state.currentTick >= loop.end) {
+            const pendingInLoop = !!step && !state.loopAhead && step.tick < loop.end;
+            if (!pendingInLoop) {
+              state.currentTick = loop.start + ((state.currentTick - loop.end) % loopLen);
+              if (!state.loopAhead) {
+                state.currentStepIndex = firstLoopStepIndex(loop);
+                state.stepFreshPresses.clear();
+              }
+              state.loopAhead = false;
+              const ct = getClickTicks();
+              state.nextBeatTick = Math.ceil((loop.start - 0.001) / ct) * ct; // click grid restarts with the loop
+              step = state.learnSteps[state.currentStepIndex];
+            }
+          }
+
+          const tolTicks = state.settings.toleranceMs * ticksPerMs * state.speed;
+          const refTick = step ? step.tick + (state.loopAhead ? loopLen : 0) : Infinity;
+          const stopTick = refTick + tolTicks;
+
+          if (step && state.currentTick > stopTick) {
             // Too late: halt exactly on the missed note and wait for the right key(s)
-            state.currentTick = step.tick;
+            state.currentTick = refTick;
             state.waitingForUser = true;
             state.stepFreshPresses.clear();
           } else if (state.settings.metronome) {
             const lookTicks = 80 * ticksPerMs * state.speed; // ~80 ms look-ahead for sample-accurate clicks
-            scheduleMetronome(Math.min(state.currentTick + lookTicks, stopTick), ticksPerMs);
+            let horizon = Math.min(state.currentTick + lookTicks, stopTick);
+            if (loop) horizon = Math.min(horizon, loop.end);
+            scheduleMetronome(horizon, ticksPerMs);
           }
         }
       }
@@ -1422,6 +1849,30 @@
         ctx.stroke();
       }
 
+      // 2b. Loop region highlight
+      const activeLoop = getActiveLoop();
+      if (activeLoop) {
+        const lx1 = Math.max(clefHeaderWidth, scrollOffsetX + activeLoop.start * pxPerTick);
+        const lx2 = Math.min(width, scrollOffsetX + activeLoop.end * pxPerTick);
+        if (lx2 > lx1) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(21, 128, 61, 0.09)';
+          ctx.fillRect(lx1, trebleTopY - 14, lx2 - lx1, bassBottomY - trebleTopY + 28);
+          ctx.strokeStyle = 'rgba(21, 128, 61, 0.55)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          if (scrollOffsetX + activeLoop.start * pxPerTick >= clefHeaderWidth) {
+            ctx.moveTo(lx1, trebleTopY - 14); ctx.lineTo(lx1, bassBottomY + 14);
+          }
+          if (scrollOffsetX + activeLoop.end * pxPerTick <= width) {
+            ctx.moveTo(lx2, trebleTopY - 14); ctx.lineTo(lx2, bassBottomY + 14);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
       // 3. Draw Measure Bar Lines & Measure Numbers
       const firstVisibleTick = Math.max(0, (clefHeaderWidth - scrollOffsetX) / pxPerTick - state.song.ticksPerMeasure);
       const lastVisibleTick = (width - scrollOffsetX) / pxPerTick + state.song.ticksPerMeasure;
@@ -1485,14 +1936,14 @@
       for (const group of chordGroups) {
         const baseX = scrollOffsetX + group.tick * pxPerTick;
 
-        // Split group into Treble (>= C4 / MIDI 60) and Bass (< C4 / MIDI 60)
+        // Split group into Treble (right hand) and Bass (left hand)
         const trebleNotes = [];
         const bassNotes = [];
 
         for (const note of group.notes) {
           const info = pitchToDiatonic(note.pitch, useFlats);
           const item = { note, ...info };
-          if (note.pitch >= 60) {
+          if (note.hand === 'right') {
             trebleNotes.push(item);
           } else {
             bassNotes.push(item);
@@ -1642,7 +2093,7 @@
         for (const pitch of state.userHeldPitches) {
           const isTarget = (activeLearnStep && activeLearnStep.requiredPitches.has(pitch)) || state.matchedHeld.has(pitch);
           const info = pitchToDiatonic(pitch, useFlats);
-          const isTreble = pitch >= 60;
+          const isTreble = pitch >= state.settings.handSplit;
           const ny = getNoteY(info.diatonicStep, isTreble);
 
           drawLedgerLines(ctx, playheadScreenX, info.diatonicStep, isTreble, trebleTopY, trebleBottomY, bassTopY, bassBottomY, halfStep, rx);
@@ -2151,6 +2602,7 @@
       if (!parsed.notes.length) {
         throw new Error('No playable notes found in MIDI');
       }
+      assignHands(parsed);
       state.song = parsed;
       state.learnSteps = buildLearnSteps(parsed);
       if (!state.learnSteps.length && state.settings.hand !== 'both') {
@@ -2160,6 +2612,7 @@
         state.learnSteps = buildLearnSteps(parsed);
       }
       state.kbRange = computeKeyboardRange(parsed);
+      updateHandSettingsUI();
       state.currentLibraryId = id || null;
       pieceTitleEl.textContent = parsed.title;
       resetToStart();
@@ -2196,8 +2649,58 @@
       handSelect.value = state.settings.hand;
       setMetroOutEl.value = state.settings.metronomeOutput;
       setMidiClickEl.value = state.settings.midiClickSound;
-      midiClickRow.style.display = state.settings.metronomeOutput === 'audio' ? 'none' : '';
+      setSubdivEl.value = String(state.settings.clickSubdiv);
+      setClickSoundEl.value = state.settings.clickSound;
+      setClickVolEl.value = state.settings.clickVolume;
+      clickVolValueEl.textContent = state.settings.clickVolume + '%';
+      updateOutputRows();
+      updateHandSettingsUI();
     }
+
+    // Show only the controls that matter for the chosen metronome output
+    function updateOutputRows() {
+      const mode = state.settings.metronomeOutput;
+      audioClickRows.style.display = mode === 'midi' ? 'none' : '';
+      midiClickRow.style.display = mode === 'audio' ? 'none' : '';
+    }
+
+    setSubdivEl.addEventListener('change', () => {
+      state.settings.clickSubdiv = parseInt(setSubdivEl.value, 10) || 1;
+      alignMetronome();
+      saveSettings();
+    });
+    setClickSoundEl.addEventListener('change', () => {
+      state.settings.clickSound = setClickSoundEl.value;
+      saveSettings();
+      ensureAudio();
+      clickOut(0, 'accent');
+    });
+    setClickVolEl.addEventListener('input', () => {
+      state.settings.clickVolume = parseInt(setClickVolEl.value, 10) || 0;
+      clickVolValueEl.textContent = state.settings.clickVolume + '%';
+      applyClickVolume();
+      saveSettings();
+    });
+
+    loopSelect.addEventListener('change', () => {
+      state.loopBars = parseFloat(loopSelect.value) || 0;
+      anchorLoop();
+      if (state.mode === 'learn' && state.song) syncLearnStepToCurrentTick();
+      alignMetronome();
+      showToast(describeLoop());
+    });
+
+    setHandsTracksEl.addEventListener('change', () => {
+      state.settings.handsFromTracks = setHandsTracksEl.checked;
+      saveSettings();
+      refreshHands();
+    });
+    setSplitEl.addEventListener('input', () => {
+      state.settings.handSplit = parseInt(setSplitEl.value, 10) || 60;
+      splitValueEl.textContent = pitchLabel(state.settings.handSplit);
+      saveSettings();
+      refreshHands();
+    });
 
     handSelect.addEventListener('change', () => {
       const prev = state.settings.hand;
@@ -2216,7 +2719,7 @@
 
     setMetroOutEl.addEventListener('change', () => {
       state.settings.metronomeOutput = setMetroOutEl.value;
-      midiClickRow.style.display = state.settings.metronomeOutput === 'audio' ? 'none' : '';
+      updateOutputRows();
       saveSettings();
     });
     setMidiClickEl.addEventListener('change', () => {
@@ -2225,9 +2728,14 @@
     });
     testClickBtn.addEventListener('click', () => {
       ensureAudio();
-      clickOut(0, true);
-      clickOut(0.5, false);
-      clickOut(1.0, false);
+      // Two beats with the chosen number of clicks per beat
+      const n = Math.max(1, state.settings.clickSubdiv | 0);
+      for (let b = 0; b < 2; b++) {
+        for (let s = 0; s < n; s++) {
+          const kind = (b === 0 && s === 0) ? 'accent' : (s === 0 ? 'beat' : 'sub');
+          clickOut(b * 0.6 + (s * 0.6) / n, kind);
+        }
+      }
     });
 
     setMetronomeEl.addEventListener('change', () => {
@@ -2321,6 +2829,7 @@
       if (state.mode === 'learn' && state.wasPlayingBeforeDrag) {
         syncLearnStepToCurrentTick();
       }
+      anchorLoop();
       alignMetronome();
     }
 
