@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>MIDI Sheet Music Trainer</title>
+  <title>Piano Trainer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,14 +38,18 @@
   <!-- Minimal Top Control Bar -->
   <header class="w-full bg-[#F2ECE0] border-b border-[#DFD6C5] px-3 py-2 sm:px-5 sm:py-2.5 flex flex-wrap items-center justify-between gap-2 z-20 shrink-0">
     
-    <!-- Left: Load MIDI + Piece Title + USB MIDI Status -->
+    <!-- Left: App title + version, Load MIDI, Piece Title + USB MIDI Status -->
     <div class="flex items-center gap-2 min-w-0">
+      <h1 class="shrink-0 flex items-baseline gap-1.5 text-sm sm:text-base font-semibold text-stone-900 tracking-tight">
+        <span>Piano Trainer</span>
+        <span id="appVersionBadge" class="text-[11px] sm:text-xs font-medium text-stone-500 tabular-nums"></span>
+      </h1>
       <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs sm:text-sm font-medium shadow-sm shrink-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
         </svg>
         <span>Load MIDI</span>
-        <input id="midiFileInput" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" class="hidden" />
+        <input id="midiFileInput" type="file"  class="hidden" />
       </label>
 
       <!-- Library: built-in + hosted MIDI pieces -->
@@ -113,8 +117,17 @@
         </button>
       </div>
 
+      <!-- Metronome on/off (works in both modes) + live tempo -->
+      <button id="metroToggleBtn" type="button" aria-pressed="false" title="Metronome on / off" aria-label="Metronome" class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-xs sm:text-sm font-medium transition active:scale-[0.99]">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8.5 21h7l2-15.5a1.5 1.5 0 00-1.5-1.5h-8a1.5 1.5 0 00-1.5 1.5L8.5 21z"/>
+          <path d="M12 16L16 7"/><path d="M14.4 11.5h2.6"/>
+        </svg>
+        <span id="tempoReadout" class="tabular-nums" title="Current tempo (quarter notes per minute, at the chosen speed)"></span>
+      </button>
+
       <!-- Hand selection (Learn mode only) -->
-      <select id="handSelect" aria-label="Hand" class="hidden px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800 focus:outline-none">
+      <select id="handSelect" aria-label="Hand" class="px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800 focus:outline-none">
         <option value="both">Both hands</option>
         <option value="right">Right hand</option>
         <option value="left">Left hand</option>
@@ -180,7 +193,21 @@
             <button id="tabAboutBtn" type="button" role="tab" class="flex-1 px-3 py-1.5 rounded-md text-xs font-medium text-stone-700 hover:text-stone-900">Version</button>
           </div>
           <div id="settingsPane" class="space-y-3">
-          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Metronome</p>
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Sound output</p>
+          <div>
+            <label for="setOutputMode" class="block text-stone-800 mb-1">Output mode</label>
+            <select id="setOutputMode" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
+              <option value="auto">Auto (MIDI if a piano is connected)</option>
+              <option value="midi">MIDI only</option>
+              <option value="audio">Audio only (built-in piano sound)</option>
+            </select>
+            <div class="mt-1.5 flex items-center gap-3">
+              <button id="testPianoBtn" type="button" class="shrink-0 px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Test piano sound</button>
+              <p id="outputStatus" class="text-[11px] leading-relaxed text-stone-500"></p>
+            </div>
+          </div>
+
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500 pt-1">Metronome</p>
 
           <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
             <span class="text-stone-800">Metronome (Learn mode)</span>
@@ -453,6 +480,7 @@
       clickSound: 'beep',        // 'beep' | 'wood' | 'tick'  (audio clicks)
       hand: 'both',              // 'both' | 'right' | 'left'  (Learn mode)
       metronomeOutput: 'audio',  // 'audio' | 'midi' | 'both'
+      outputMode: 'auto',        // where the music is heard: 'auto' (MIDI if a piano is connected, else built-in audio) | 'midi' | 'audio'
       midiClickMode: 'gm',       // 'gm' (GM metronome notes on channel 10) | 'piano' (high piano keys, fallback)
       waitMode: true,            // Learn mode: stop and wait when you are later than the tolerance
       keepAwake: true,           // keep the screen on (a locked tablet drops USB MIDI)
@@ -462,6 +490,7 @@
     const ALLOWED_SETTINGS = {
       hand: ['both', 'right', 'left'],
       metronomeOutput: ['audio', 'midi', 'both'],
+      outputMode: ['auto', 'midi', 'audio'],
       clickSound: ['beep', 'wood', 'tick'],
       clickSubdiv: [1, 2, 3, 4],
       midiClickMode: ['gm', 'piano']
@@ -554,6 +583,12 @@
     const setKeepAwakeEl = document.getElementById('setKeepAwake');
     const midiReconnectBtn = document.getElementById('midiReconnectBtn');
     const midiLogEl = document.getElementById('midiLog');
+    const metroToggleBtn = document.getElementById('metroToggleBtn');
+    const tempoReadoutEl = document.getElementById('tempoReadout');
+    const appVersionBadge = document.getElementById('appVersionBadge');
+    const setOutputModeEl = document.getElementById('setOutputMode');
+    const testPianoBtn = document.getElementById('testPianoBtn');
+    const outputStatusEl = document.getElementById('outputStatus');
     const loopStepper = document.getElementById('loopStepper');
     const loopStartDec = document.getElementById('loopStartDec');
     const loopStartInc = document.getElementById('loopStartInc');
@@ -868,6 +903,7 @@
     document.addEventListener('pointerdown', () => requestWakeLock(), { passive: true });
 
     function updateMidiStatusBadge() {
+      updateOutputStatus();
       const inPort = state.midiInputs.find(i => i.id === state.selectedInputId);
       const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
 
@@ -883,8 +919,26 @@
       }
     }
 
-    // Push MIDI Note On directly to connected digital piano
+    // Where the music is heard right now: 'midi' (the piano) or 'audio' (built-in sound)
+    function outputRoute() {
+      const m = state.settings.outputMode;
+      if (m === 'midi' || m === 'audio') return m;
+      return state.midiOutputs.some(o => o.id === state.selectedOutputId) ? 'midi' : 'audio';
+    }
+
+    function updateOutputStatus() {
+      const r = outputRoute();
+      const auto = state.settings.outputMode === 'auto';
+      outputStatusEl.textContent = 'Now using: ' + (r === 'midi' ? 'MIDI → piano' : 'built-in audio') + (auto ? ' (auto)' : '');
+    }
+
+    // Push MIDI Note On directly to connected digital piano (or to the built-in piano sound)
     function sendMidiNoteOn(pitch, velocity = 80, channel = 0) {
+      if (outputRoute() === 'audio') {
+        synthNoteOn(pitch, velocity, pitch, channel);
+        state.soundingOutNotes.set(pitch, { channel: 0 });
+        return;
+      }
       const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
       if (outPort) {
         try {
@@ -898,6 +952,7 @@
 
     // Push MIDI Note Off directly to connected digital piano
     function sendMidiNoteOff(pitch, channel = 0) {
+      synthNoteOff(pitch);
       const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
       if (outPort) {
         try {
@@ -913,6 +968,7 @@
     function stopAllMidiNotes() {
       // Only talk to the piano when something is actually sounding: an idle mode switch, pause or scrub
       // must not push extra messages (like All Notes Off) into the USB link.
+      synthStopAll();
       if (state.soundingOutNotes.size === 0) return;
       const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
       if (outPort) {
@@ -941,6 +997,7 @@
       if (status === 0x90 && velocity > 0) {
         // Note On from piano keyboard
         state.userHeldPitches.add(pitch);
+        if (outputRoute() === 'audio') synthNoteOn(pitch, velocity, 'u' + pitch);
         if (state.mode === 'learn' && state.isPlaying) {
           registerLearnPress(pitch);
         }
@@ -948,6 +1005,7 @@
         // Note Off from piano keyboard
         state.userHeldPitches.delete(pitch);
         state.matchedHeld.delete(pitch);
+        synthNoteOff('u' + pitch);
       }
     }
 
@@ -1563,6 +1621,78 @@
     }
 
     // ---- Metronome (WebAudio click, follows the MIDI's own tempo, scaled by speed)
+    // --------------------------------------------------------------------------
+    // Built-in piano: a small additive synth (a few decaying partials per note) for use without a MIDI keyboard
+    // --------------------------------------------------------------------------
+    const synthVoices = new Map();   // key -> { g, oscs, stopAt }
+    const SYNTH_MAX_VOICES = 40;
+    const SYNTH_PARTIALS = [[1, 1.0], [2, 0.5], [3, 0.28], [4, 0.16], [5, 0.08]];
+
+    function synthNoteOn(pitch, velocity = 80, key = pitch, channel = 0) {
+      if (channel === 9) return;   // General MIDI channel 10 = drums, not pitched
+      const ac = ensureAudio();
+      if (!ac || !state.synthGain) return;
+      synthNoteOff(key, true);
+      if (synthVoices.size >= SYNTH_MAX_VOICES) synthNoteOff(synthVoices.keys().next().value, true);
+
+      const t = ac.currentTime;
+      const f = 440 * Math.pow(2, (pitch - 69) / 12);
+      const vel = Math.max(1, Math.min(127, velocity)) / 127;
+      const peak = 0.22 * Math.pow(vel, 1.4) + 0.02;
+      const ring = Math.max(1.2, 7 - (pitch - 21) * 0.055);   // low strings ring longer than high ones
+
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(peak, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(peak * 0.3, t + 0.35);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + ring);
+
+      const lp = ac.createBiquadFilter();   // brighter when played harder, duller up high
+      lp.type = 'lowpass';
+      lp.frequency.value = Math.min(12000, f * (3 + 9 * vel));
+      lp.Q.value = 0.3;
+      g.connect(lp);
+      lp.connect(state.synthGain);
+
+      const oscs = [];
+      for (const [mult, amp] of SYNTH_PARTIALS) {
+        if (f * mult > 9000) break;
+        const o = ac.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = f * mult * (1 + (mult - 1) * 0.0004);   // slight stretch, like real strings
+        const pg = ac.createGain();
+        pg.gain.setValueAtTime(amp, t);
+        pg.gain.exponentialRampToValueAtTime(amp * 0.25, t + 0.6 / mult + 0.2);   // upper partials fade faster
+        o.connect(pg); pg.connect(g);
+        o.start(t);
+        oscs.push(o);
+      }
+      const stopAt = t + ring + 0.1;
+      oscs.forEach(o => o.stop(stopAt));
+      const voice = { g, lp, oscs, stopAt };
+      oscs[0].onended = () => { if (synthVoices.get(key) === voice) synthVoices.delete(key); try { lp.disconnect(); } catch (e) {} };
+      synthVoices.set(key, voice);
+    }
+
+    function synthNoteOff(key, fast = false) {
+      const v = synthVoices.get(key);
+      const ac = state.audioCtx;
+      if (!v || !ac) return;
+      synthVoices.delete(key);
+      const now = ac.currentTime;
+      const rel = fast ? 0.02 : 0.22;   // quick fade-out like a damper
+      try {
+        if (typeof v.g.gain.cancelAndHoldAtTime === 'function') v.g.gain.cancelAndHoldAtTime(now);
+        else v.g.gain.cancelScheduledValues(now);
+        v.g.gain.setTargetAtTime(0.0001, now, rel / 3);
+        v.oscs.forEach(o => { try { o.stop(now + rel + 0.15); } catch (e) {} });
+      } catch (e) {}
+    }
+
+    function synthStopAll() {
+      for (const k of [...synthVoices.keys()]) synthNoteOff(k);
+    }
+
     function ensureAudio() {
       if (!state.audioCtx) {
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -1591,6 +1721,9 @@
       limiter.release.value = 0.05;
       state.masterGain.connect(limiter);
       limiter.connect(ac.destination);
+      state.synthGain = ac.createGain();   // built-in piano -> same limiter
+      state.synthGain.gain.value = 0.9;
+      state.synthGain.connect(limiter);
       applyClickVolume();
 
       const len = Math.floor(ac.sampleRate * 0.05);
@@ -1756,14 +1889,17 @@
     // Schedule clicks for every beat up to horizonTick (called each frame with a small look-ahead)
     // Every click is placed from the frame's own timestamp and its distance to the playhead, so successive clicks
     // keep exactly the spacing of the click grid whatever the frame jitter is.
-    function scheduleMetronome(horizonTick, tpms, frameNow) {
+    function scheduleMetronome(horizonTick, tpms, frameNow, loop) {
       const ct = getClickTicks();
+      const loopLen = loop ? loop.end - loop.start : 0;
       sampleAudioClock();
       const msPerTick = 1 / (tpms * state.speed);
       let guard = 0;
       while (state.nextBeatTick < horizonTick && guard++ < 32) {
         const tick = state.nextBeatTick;
-        clickOutAt(frameNow + Math.max(0, tick - state.currentTick) * msPerTick, clickKind(tick));
+        // Past the loop end the click belongs to the next pass: same sound as at the loop start, on time
+        const kindTick = (loop && tick >= loop.end) ? tick - loopLen : tick;
+        clickOutAt(frameNow + Math.max(0, tick - state.currentTick) * msPerTick, clickKind(kindTick));
         state.nextBeatTick += ct;
       }
     }
@@ -1899,6 +2035,8 @@
 
         if (state.mode === 'learn') {
           beginLearnRun();
+        } else {
+          alignMetronome();   // Play mode metronome starts on the next beat grid point
         }
       } else {
         state.isPlaying = false;
@@ -2026,7 +2164,9 @@
 
     // Send Note On / Note Off for notes crossed between two song positions (play mode)
     function triggerNotesBetween(prevTick, nextTick) {
+      const hand = state.settings.hand;
       for (const note of state.song.notes) {
+        if (hand !== 'both' && !noteInHand(note, hand)) continue;   // Play mode: only the chosen hand is heard
         if (note.startTick >= prevTick && note.startTick < nextTick) {
           // Re-trigger cleanly if already sounding
           if (state.soundingOutNotes.has(note.pitch)) {
@@ -2060,7 +2200,7 @@
         state.countIn = null;
       }
 
-      const dtMs = Math.min(100, now - (state.lastFrameTime || now));
+      const dtMs = Math.min(250, now - (state.lastFrameTime || now));   // a slow frame must not make the music fall behind the clock
       state.lastFrameTime = now;
 
       const usPerQuarter = getMicrosecondsPerQuarterAtTick(state.currentTick);
@@ -2081,12 +2221,23 @@
           const wrapped = loop.start + ((rawNext - loop.end) % loopLen);
           triggerNotesBetween(loop.start, wrapped);
           state.currentTick = wrapped;
+          const ctw = getClickTicks();
+          const regrid = Math.ceil((wrapped - 0.001) / ctw) * ctw;
+          // clicks for the next pass were already scheduled ahead of the wrap: just move the grid back by one pass
+          state.nextBeatTick = state.nextBeatTick >= loop.end ? Math.max(regrid, state.nextBeatTick - loopLen) : regrid;
         } else {
           triggerNotesBetween(prevTick, rawNext);
           state.currentTick = rawNext;
           if (state.currentTick >= state.song.totalTicks) {
             setPlaying(false);
           }
+        }
+
+        // Metronome on top of the music
+        if (state.isPlaying && state.settings.metronome) {
+          let horizon = state.currentTick + 150 * ticksPerMs * state.speed;
+          if (!loop) horizon = Math.min(horizon, state.song.totalTicks);
+          scheduleMetronome(horizon, ticksPerMs, now, loop);
         }
       } else if (state.mode === 'learn') {
         // Learning mode: the playhead flows at the piece's own tempo (with metronome).
@@ -2667,7 +2818,7 @@
 
     const DIM_NOTE_COLOR = '#B9AF9C';
     function isDimmedNote(note) {
-      return state.mode === 'learn' && state.settings.hand !== 'both' && !noteInHand(note, state.settings.hand);
+      return state.settings.hand !== 'both' && !noteInHand(note, state.settings.hand);
     }
 
     function drawFlag(ctx, stemX, stemEndY, stemUp, lineSpacing, isDouble, color = '#1C1917') {
@@ -2886,7 +3037,6 @@
       state.mode = newMode;
       state.countIn = null;
       alignMetronome();
-      handSelect.classList.toggle('hidden', newMode !== 'learn');
 
       if (newMode === 'play') {
         modePlayBtn.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs';
@@ -3244,10 +3394,39 @@
     // --------------------------------------------------------------------------
     // 7c-3. VERSION & CHANGELOG
     // --------------------------------------------------------------------------
-    const APP_VERSION = '6.0';
+    const APP_VERSION = '7.2';
     const APP_RELEASE_DATE = '2026-11-16';
+    appVersionBadge.textContent = 'v' + APP_VERSION;
     // approx: true = date reconstructed afterwards
     const CHANGELOG = [
+      {
+        version: '7.2', date: '2026-11-16',
+        features: [
+          'Left hand / right hand / both hands also in Play mode: only the chosen hand is played, the other hand is greyed out on the sheet.'
+        ],
+        fixes: []
+      },
+      {
+        version: '7.1', date: '2026-11-16',
+        features: [
+          'Metronome button in the top bar: on / off in Play and Learn mode, clicking along with the music.',
+          'Live tempo readout (♩ = BPM) next to the button, to check the speed of a piece at a glance and spot tempo changes inside a file.'
+        ],
+        fixes: [
+          'Playback no longer falls behind real time when the tablet drops frames (slow frames were capped at 100 ms, now 250 ms).'
+        ]
+      },
+      {
+        version: '7.0', date: '2026-11-16',
+        features: [
+          'The app is now called Piano Trainer, with its version number next to the title.',
+          'Built-in piano sound, so songs can be heard and practised without a MIDI keyboard.',
+          'Output mode setting: Auto (MIDI when a piano is connected, otherwise built-in audio), MIDI only, or Audio only. A Test piano sound button checks the speakers.'
+        ],
+        fixes: [
+          'Load MIDI on Android: the file chooser no longer filters on audio types, which only offered the voice recorder and gallery.'
+        ]
+      },
       {
         version: '6.0', date: '2026-11-16',
         features: [
@@ -3370,8 +3549,25 @@
     tabSettingsBtn.addEventListener('click', () => showSettingsTab('settings'));
     tabAboutBtn.addEventListener('click', () => showSettingsTab('about'));
 
+    setOutputModeEl.addEventListener('change', () => {
+      state.settings.outputMode = setOutputModeEl.value;
+      synthStopAll();
+      updateOutputStatus();
+      saveSettings();
+    });
+    testPianoBtn.addEventListener('click', () => {
+      if (!ensureAudio()) { showToast('Audio is not available on this device'); return; }
+      [60, 64, 67, 72].forEach((p, i) => {
+        setTimeout(() => synthNoteOn(p, 85, 't' + p), i * 140);
+        setTimeout(() => synthNoteOff('t' + p), 1400 + i * 60);
+      });
+    });
+
     function applySettingsToUI() {
+      setOutputModeEl.value = state.settings.outputMode;
+      updateOutputStatus();
       setMetronomeEl.checked = !!state.settings.metronome;
+      updateMetroBtn();
       setCountInEl.checked = !!state.settings.countIn;
       setToleranceEl.value = state.settings.toleranceMs;
       tolValueEl.textContent = state.settings.toleranceMs + ' ms';
@@ -3470,6 +3666,7 @@
         return;
       }
       state.learnSteps = steps;
+      stopAllMidiNotes();   // silence what the other hand was still holding
       saveSettings();
       saveSongPrefs();
       if (state.mode === 'learn') syncLearnStepToCurrentTick();
@@ -3517,11 +3714,34 @@
       }
     });
 
-    setMetronomeEl.addEventListener('change', () => {
-      state.settings.metronome = setMetronomeEl.checked;
+    // Header metronome button <-> the Settings checkbox (same setting)
+    function updateMetroBtn() {
+      const on = !!state.settings.metronome;
+      metroToggleBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      metroToggleBtn.className = 'inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border text-xs sm:text-sm font-medium transition active:scale-[0.99] ' +
+        (on ? 'bg-stone-900 text-[#F9F5EB] border-stone-900' : 'bg-[#FAF7F0] text-stone-700 border-[#D6CBB8] hover:bg-white');
+    }
+    function setMetronomeOn(on) {
+      state.settings.metronome = on;
+      setMetronomeEl.checked = on;
+      updateMetroBtn();
       alignMetronome();
       saveSettings();
+    }
+    metroToggleBtn.addEventListener('click', () => {
+      ensureAudio();   // inside the tap, so the browser allows sound
+      setMetronomeOn(!state.settings.metronome);
     });
+    setMetronomeEl.addEventListener('change', () => setMetronomeOn(setMetronomeEl.checked));
+
+    // Live tempo: shows the effective BPM, so a tempo change inside the file is easy to spot
+    let lastTempoShown = '';
+    function updateTempoReadout() {
+      if (!state.song) return;
+      const bpm = 60000000 / getMicrosecondsPerQuarterAtTick(state.currentTick) * state.speed;
+      const txt = '\u2669=' + Math.round(bpm);
+      if (txt !== lastTempoShown) { lastTempoShown = txt; tempoReadoutEl.textContent = txt; }
+    }
     setCountInEl.addEventListener('change', () => {
       state.settings.countIn = setCountInEl.checked;
       saveSettings();
@@ -3661,6 +3881,7 @@
     // 8. INITIALIZATION & MAIN ANIMATION LOOP
     // --------------------------------------------------------------------------
     function mainLoop(now) {
+      updateTempoReadout();
       sampleAudioClock();   // keep the audio/performance clock offset converged before playback starts
       updateSimulation(now);
       renderSheetMusic();
