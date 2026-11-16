@@ -120,14 +120,31 @@
         <option value="left">Left hand</option>
       </select>
 
-      <!-- Loop (a bar, half a bar, 2 or 4 bars) -->
-      <select id="loopSelect" aria-label="Loop" class="px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800 focus:outline-none">
+      <!-- Loop: 1 to 16 bars, with a stepper for the start bar -->
+      <select id="loopSelect" aria-label="Loop length" class="px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800 focus:outline-none">
         <option value="0">Loop: off</option>
-        <option value="0.5">Loop ½ bar</option>
         <option value="1">Loop 1 bar</option>
         <option value="2">Loop 2 bars</option>
+        <option value="3">Loop 3 bars</option>
         <option value="4">Loop 4 bars</option>
+        <option value="5">Loop 5 bars</option>
+        <option value="6">Loop 6 bars</option>
+        <option value="7">Loop 7 bars</option>
+        <option value="8">Loop 8 bars</option>
+        <option value="9">Loop 9 bars</option>
+        <option value="10">Loop 10 bars</option>
+        <option value="11">Loop 11 bars</option>
+        <option value="12">Loop 12 bars</option>
+        <option value="13">Loop 13 bars</option>
+        <option value="14">Loop 14 bars</option>
+        <option value="15">Loop 15 bars</option>
+        <option value="16">Loop 16 bars</option>
       </select>
+      <div id="loopStepper" class="hidden inline-flex items-stretch rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] overflow-hidden" role="group" aria-label="Loop start bar">
+        <button id="loopStartDec" type="button" aria-label="Move loop start back" class="px-3.5 py-2 text-base leading-none font-semibold text-stone-800 hover:bg-white active:bg-stone-200 disabled:opacity-30 disabled:hover:bg-transparent">&minus;</button>
+        <span id="loopStartLabel" class="px-2.5 py-2 text-xs sm:text-sm font-medium text-stone-800 tabular-nums min-w-[4.4rem] text-center select-none">Bar 1</span>
+        <button id="loopStartInc" type="button" aria-label="Move loop start forward" class="px-3.5 py-2 text-base leading-none font-semibold text-stone-800 hover:bg-white active:bg-stone-200 disabled:opacity-30 disabled:hover:bg-transparent">+</button>
+      </div>
 
       <!-- Play/Pause & Restart -->
       <div class="inline-flex items-center gap-1">
@@ -157,7 +174,12 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
           </svg>
         </button>
-        <div id="settingsPopover" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] max-h-[80vh] overflow-y-auto p-4 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30 text-sm space-y-3">
+        <div id="settingsPopover" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] max-h-[80vh] overflow-y-auto p-4 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30 text-sm">
+          <div class="flex w-full p-0.5 mb-3 rounded-lg bg-[#E5DEC9] border border-[#D6CBB8]" role="tablist">
+            <button id="tabSettingsBtn" type="button" role="tab" class="flex-1 px-3 py-1.5 rounded-md text-xs font-medium bg-stone-900 text-[#F9F5EB] shadow-xs">Settings</button>
+            <button id="tabAboutBtn" type="button" role="tab" class="flex-1 px-3 py-1.5 rounded-md text-xs font-medium text-stone-700 hover:text-stone-900">Version</button>
+          </div>
+          <div id="settingsPane" class="space-y-3">
           <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Metronome</p>
 
           <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
@@ -173,12 +195,12 @@
           <div>
             <label for="setSubdiv" class="block text-stone-800 mb-1">Clicks per beat</label>
             <select id="setSubdiv" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none">
-              <option value="1">1 – beats only</option>
-              <option value="2">2 – eighths</option>
-              <option value="3">3 – triplets</option>
-              <option value="4">4 – sixteenths</option>
+              <option value="1">1 per beat (beats only)</option>
+              <option value="2">2 per beat (half-beats)</option>
+              <option value="3">3 per beat (triplets)</option>
+              <option value="4">4 per beat (quarter-beats)</option>
             </select>
-            <p class="mt-1 text-[11px] leading-relaxed text-stone-500">Extra clicks are softer. The speed does not change.</p>
+            <p id="subdivHint" class="mt-1 text-[11px] leading-relaxed text-stone-500"></p>
           </div>
 
           <div>
@@ -247,6 +269,21 @@
           </label>
           <p id="handsInfo" class="text-[11px] leading-relaxed text-stone-500"></p>
 
+          <div id="trackMapRows" class="hidden space-y-2">
+            <div>
+              <label for="setLeftVoice" class="block text-stone-800 mb-1">Left hand part</label>
+              <select id="setLeftVoice" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none"></select>
+            </div>
+            <div>
+              <label for="setRightVoice" class="block text-stone-800 mb-1">Right hand part</label>
+              <select id="setRightVoice" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none"></select>
+            </div>
+            <div class="flex items-center gap-3">
+              <button id="trackMapReset" type="button" class="hidden shrink-0 px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Reset to auto</button>
+              <p class="text-[11px] leading-relaxed text-stone-500">Other parts still play in Play mode but are not shown or practised. The same part for both hands is split at the split point.</p>
+            </div>
+          </div>
+
           <div id="splitRow">
             <div class="flex items-center justify-between">
               <span class="text-stone-800">Split point</span>
@@ -271,20 +308,31 @@
             <input id="setKeepAwake" type="checkbox" class="w-5 h-5 accent-emerald-800" />
           </label>
           <p class="text-[11px] leading-relaxed text-stone-500">Stops the tablet from locking while you play, which can cut the USB MIDI connection.</p>
+          </div>
+
+          <div id="aboutPane" class="hidden space-y-4">
+            <div>
+              <p id="aboutVersion" class="text-base font-semibold text-stone-900"></p>
+              <p id="aboutDate" class="text-xs text-stone-500"></p>
+            </div>
+            <div id="changelogList" class="space-y-4"></div>
+          </div>
         </div>
       </div>
 
-    <div class="inline-flex p-0.5 rounded-lg bg-[#E5DEC9] border border-[#D6CBB8]" role="group" aria-label="Playback Speed">
-      <button type="button" data-speed="1" class="speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs">
-        1×
-      </button>
-      <button type="button" data-speed="0.5" class="speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900">
-        ½×
-      </button>
-      <button type="button" data-speed="0.25" class="speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900">
-        ¼×
-      </button>
-    </div>
+      <select id="speedSelect" aria-label="Playback speed" class="px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800 focus:outline-none">
+        <option value="50">Speed 50%</option>
+        <option value="55">Speed 55%</option>
+        <option value="60">Speed 60%</option>
+        <option value="65">Speed 65%</option>
+        <option value="70">Speed 70%</option>
+        <option value="75">Speed 75%</option>
+        <option value="80">Speed 80%</option>
+        <option value="85">Speed 85%</option>
+        <option value="90">Speed 90%</option>
+        <option value="95">Speed 95%</option>
+        <option value="100" selected>Speed 100%</option>
+      </select>
     </div>
 
   </header>
@@ -381,7 +429,15 @@
       loopAhead: false,        // learn mode: current step already belongs to the next pass
 
       // Learn mode score for the current run
-      learnStats: { hit: 0, missed: 0 }
+      learnStats: { hit: 0, missed: 0 },
+
+      // Per-song preferences
+      songKey: null,           // identifies the current MIDI file in the saved preferences
+      restoringPrefs: false,   // true while a song's saved preferences are being applied
+      voiceOverride: null,     // { left, right } = parts the user picked as hands (null = auto-detect)
+
+      // Performance clock -> audio clock offset (ms), smoothed; keeps metronome clicks on an even grid
+      audioOffsetMs: null
     };
 
     // User settings (persisted in the browser)
@@ -462,7 +518,7 @@
     const pauseIcon = document.getElementById('pauseIcon');
     const playPauseLabel = document.getElementById('playPauseLabel');
     const restartBtn = document.getElementById('restartBtn');
-    const speedBtns = document.querySelectorAll('.speed-btn');
+    const speedSelect = document.getElementById('speedSelect');
     const statusToast = document.getElementById('statusToast');
     const kbWrap = document.getElementById('keyboardWrap');
     const kbCanvas = document.getElementById('keyboardCanvas');
@@ -498,6 +554,22 @@
     const setKeepAwakeEl = document.getElementById('setKeepAwake');
     const midiReconnectBtn = document.getElementById('midiReconnectBtn');
     const midiLogEl = document.getElementById('midiLog');
+    const loopStepper = document.getElementById('loopStepper');
+    const loopStartDec = document.getElementById('loopStartDec');
+    const loopStartInc = document.getElementById('loopStartInc');
+    const loopStartLabel = document.getElementById('loopStartLabel');
+    const trackMapRows = document.getElementById('trackMapRows');
+    const setLeftVoiceEl = document.getElementById('setLeftVoice');
+    const setRightVoiceEl = document.getElementById('setRightVoice');
+    const trackMapReset = document.getElementById('trackMapReset');
+    const subdivHintEl = document.getElementById('subdivHint');
+    const settingsPane = document.getElementById('settingsPane');
+    const aboutPane = document.getElementById('aboutPane');
+    const tabSettingsBtn = document.getElementById('tabSettingsBtn');
+    const tabAboutBtn = document.getElementById('tabAboutBtn');
+    const aboutVersionEl = document.getElementById('aboutVersion');
+    const aboutDateEl = document.getElementById('aboutDate');
+    const changelogListEl = document.getElementById('changelogList');
 
     let toastTimer = null;
     function showToast(msg) {
@@ -727,6 +799,27 @@
         }
       }
     }
+    // Called on every Play <-> Learn switch: confirm the link is still alive and repair it right away if not
+    function midiHealthCheck(reason) {
+      if (!state.midiAccess) return;
+      const sig = midiPortSignature();
+      if (sig !== midiLastSig) {
+        midiLastSig = sig;
+        refreshMidiPorts();
+      }
+      const inp = state.midiInputs.find(i => i.id === state.selectedInputId);
+      logMidi(`${reason}: ` + (inp ? `"${inp.name || inp.id}" ${inp.state}/${inp.connection}, listener ${inp.onmidimessage === handleIncomingMidiMessage ? 'on' : 'OFF'}` : 'no input'));
+      if (inp) {
+        if (inp.onmidimessage !== handleIncomingMidiMessage || inp.connection === 'closed') {
+          logMidi('Link needed repair: re-attaching');
+          bindSelectedMidiInput();
+        }
+      } else if (midiHadInput && !midiReacquiring) {
+        midiAutoReacquires = 0;
+        reacquireMidi(reason + ': piano missing');
+      }
+    }
+
     setInterval(midiWatchdog, 1500);
 
     // Back from the background (screen was off / another app): ports are often dead by then
@@ -818,22 +911,22 @@
 
     // Silence all sounding notes on the piano immediately
     function stopAllMidiNotes() {
+      // Only talk to the piano when something is actually sounding: an idle mode switch, pause or scrub
+      // must not push extra messages (like All Notes Off) into the USB link.
+      if (state.soundingOutNotes.size === 0) return;
       const outPort = state.midiOutputs.find(o => o.id === state.selectedOutputId);
-      for (const [pitch, info] of state.soundingOutNotes.entries()) {
-        if (outPort) {
+      if (outPort) {
+        for (const [pitch, info] of state.soundingOutNotes.entries()) {
           try {
             outPort.send([0x80 | (info.channel & 0x0F), pitch & 0x7F, 0]);
           } catch (e) {}
         }
-      }
-      state.soundingOutNotes.clear();
-
-      // Also send CC 123 (All Notes Off) on channel 0 for safety
-      if (outPort) {
+        // All Notes Off on channel 1 as a safety net for notes that were sounding
         try {
           outPort.send([0xB0, 123, 0]);
         } catch (e) {}
       }
+      state.soundingOutNotes.clear();
     }
 
     // Handle incoming key presses from the user's USB piano
@@ -1178,28 +1271,80 @@
       return hands;
     }
 
+    function noteName(p) {
+      const names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+      return names[p % 12] + (Math.floor(p / 12) - 1);
+    }
+
+    // The main part auto-detection gave to a hand
+    function autoRepresentative(song, hand) {
+      const auto = song.autoHands;
+      if (!auto) return null;
+      let best = null;
+      for (const v of song.voices) {
+        if (auto.get(v.key) === hand && (!best || v.count > best.count)) best = v;
+      }
+      return best ? best.key : null;
+    }
+
+    // What the two dropdowns show when nothing was picked by hand
+    function defaultVoicePick(song) {
+      const voices = song.voices || [];
+      if (voices.length < 2) return { left: null, right: null };
+      const byMean = [...voices].sort((a, b) => a.mean - b.mean);
+      let left = autoRepresentative(song, 'left') || byMean[0].key;
+      let right = autoRepresentative(song, 'right') || byMean[byMean.length - 1].key;
+      if (left === right) right = byMean.find(v => v.key !== left).key;
+      return { left, right };
+    }
+
     function assignHands(song) {
       const s = state.settings;
       const voices = song.voices || [];
-      const voiceHands = s.handsFromTracks ? computeVoiceHands(song) : null;
+      song.autoHands = computeVoiceHands(song);
+      const ov = state.voiceOverride;
+      const known = (k) => voices.some(v => v.key === k);
 
-      if (voiceHands) {
-        for (const n of song.notes) {
-          n.hand = voiceHands.get(n.track + ':' + n.channel) || (n.pitch >= s.handSplit ? 'right' : 'left');
+      let map = null;
+      let mode = 'pitch';
+      let reason = null;
+      if (s.handsFromTracks && voices.length >= 2 && ov && known(ov.left) && known(ov.right)) {
+        map = new Map();
+        for (const v of voices) {
+          const L = v.key === ov.left, R = v.key === ov.right;
+          map.set(v.key, L && R ? 'both' : (L ? 'left' : (R ? 'right' : null)));
         }
-        song.handInfo = {
-          mode: 'tracks',
-          parts: voices.map(v => `${v.name} → ${voiceHands.get(v.key)}`)
-        };
+        mode = 'tracks-manual';
+      } else if (s.handsFromTracks && song.autoHands) {
+        map = song.autoHands;
+        mode = 'tracks';
       } else {
-        for (const n of song.notes) {
-          n.hand = n.pitch >= s.handSplit ? 'right' : 'left';
-        }
-        song.handInfo = {
-          mode: 'pitch',
-          reason: !s.handsFromTracks ? 'off' : (voices.length < 2 ? 'single' : 'unclear')
-        };
+        reason = !s.handsFromTracks ? 'off' : (voices.length < 2 ? 'single' : 'unclear');
       }
+
+      const byPitch = (n) => (n.pitch >= s.handSplit ? 'right' : 'left');
+      for (const n of song.notes) {
+        let h = map ? map.get(n.track + ':' + n.channel) : undefined;
+        if (h === undefined || h === 'both') h = byPitch(n);
+        n.hand = h;   // null = a part the user left out
+      }
+
+      const usesSplit = !map || [...map.values()].includes('both');
+      song.handInfo = {
+        mode, reason, usesSplit,
+        parts: voices.map(v => `${v.name} → ${map ? (map.get(v.key) || 'not used') : '–'}`)
+      };
+    }
+
+    function fillVoiceSelect(select, voices, value) {
+      select.textContent = '';
+      for (const v of voices) {
+        const opt = document.createElement('option');
+        opt.value = v.key;
+        opt.textContent = `${v.name} · ${v.count} notes · ~${noteName(Math.round(v.mean))}`;
+        select.appendChild(opt);
+      }
+      if (value) select.value = value;
     }
 
     function updateHandSettingsUI() {
@@ -1208,25 +1353,41 @@
       setSplitEl.value = s.handSplit;
       splitValueEl.textContent = pitchLabel(s.handSplit);
 
-      const info = state.song && state.song.handInfo;
+      const song = state.song;
+      const info = song && song.handInfo;
       let text = '';
-      let splitActive = true;
       if (!info) {
         text = '';
       } else if (info.mode === 'tracks') {
         const shown = info.parts.slice(0, 4).join(', ') + (info.parts.length > 4 ? ', …' : '');
-        text = `Hands taken from this file's parts: ${shown}.`;
-        splitActive = false;
+        text = `Auto-detected from this file's parts: ${shown}.`;
+      } else if (info.mode === 'tracks-manual') {
+        text = 'Using the parts you picked below.';
       } else if (info.reason === 'off') {
         text = 'Off: the split point below is used.';
       } else if (info.reason === 'single') {
         text = 'This file has all notes in a single track, so the split point below is used.';
       } else {
-        text = "This file has several tracks but they could not be told apart, so the split point below is used.";
+        text = 'Auto-detect could not tell the hands apart: the split point is in use. You can pick the parts below.';
       }
       handsInfoEl.textContent = text;
+
+      const splitActive = !info || info.usesSplit;
       setSplitEl.disabled = !splitActive;
       splitRowEl.style.opacity = splitActive ? '' : '0.45';
+
+      // Manual part -> hand mapping (only when the file has 2+ parts)
+      const voices = song ? (song.voices || []) : [];
+      const showMap = !!song && s.handsFromTracks && voices.length >= 2;
+      trackMapRows.classList.toggle('hidden', !showMap);
+      if (showMap) {
+        const keys = new Set(voices.map(v => v.key));
+        const ov = state.voiceOverride && keys.has(state.voiceOverride.left) && keys.has(state.voiceOverride.right) ? state.voiceOverride : null;
+        const pick = ov || defaultVoicePick(song);
+        fillVoiceSelect(setLeftVoiceEl, voices, pick.left);
+        fillVoiceSelect(setRightVoiceEl, voices, pick.right);
+        trackMapReset.classList.toggle('hidden', !ov);
+      }
     }
 
     // Re-derive hands after the settings changed, keeping the current position
@@ -1239,15 +1400,18 @@
         handSelect.value = 'both';
         steps = buildLearnSteps(state.song);
         saveSettings();
-        showToast('No notes for that hand with this split: showing both hands');
+        showToast('No notes for that hand with this setting: showing both hands');
       }
       state.learnSteps = steps;
+      state.kbRange = computeKeyboardRange(state.song);
       if (state.mode === 'learn') syncLearnStepToCurrentTick();
       updateHandSettingsUI();
+      saveSongPrefs();
     }
 
-    // Which hand a note belongs to
+    // Which hand a note belongs to ('both' = every note that is assigned to a hand)
     function noteInHand(note, hand) {
+      if (!note.hand) return false;
       if (hand === 'right') return note.hand === 'right';
       if (hand === 'left') return note.hand === 'left';
       return true;
@@ -1441,10 +1605,11 @@
     }
 
     // kind: 'accent' (bar start) | 'beat' | 'sub' (in-between click)
-    function playClick(delaySec, kind) {
+    // Schedule one click at an absolute audio-clock time (seconds)
+    function playClickAt(t, kind) {
       const ac = state.audioCtx;
       if (!ac || !state.masterGain) return;
-      const t = ac.currentTime + Math.max(0, delaySec);
+      t = Math.max(t, ac.currentTime);
       const level = kind === 'accent' ? 1 : (kind === 'sub' ? 0.4 : 0.7);
       const sound = state.settings.clickSound;
       const env = ac.createGain();
@@ -1497,23 +1662,60 @@
     const MIDI_CLICK_GM = { channel: 9, accentNote: 34, beatNote: 33, velAccent: 115, velBeat: 95, velSub: 60, lenMs: 80 };
     const MIDI_CLICK_PIANO = { channel: 0, accentNote: 108, beatNote: 103, velAccent: 110, velBeat: 85, velSub: 50, lenMs: 60 };
 
-    function sendMidiClick(delaySec, kind) {
+    // Send a MIDI click at an absolute performance.now() time (ms)
+    function sendMidiClickAt(perfMs, kind) {
       const out = state.midiOutputs.find(o => o.id === state.selectedOutputId);
       if (!out) return;
       const c = state.settings.midiClickMode === 'piano' ? MIDI_CLICK_PIANO : MIDI_CLICK_GM;
       const note = kind === 'accent' ? c.accentNote : c.beatNote;
       const vel = kind === 'accent' ? c.velAccent : (kind === 'sub' ? c.velSub : c.velBeat);
-      const t = performance.now() + Math.max(0, delaySec) * 1000; // Web MIDI timestamps give sample-accurate scheduling
       try {
-        out.send([0x90 | c.channel, note, vel], t);
-        out.send([0x80 | c.channel, note, 0], t + c.lenMs);
+        out.send([0x90 | c.channel, note, vel], perfMs);   // Web MIDI timestamps are on the performance.now() clock
+        out.send([0x80 | c.channel, note, 0], perfMs + c.lenMs);
       } catch (e) {}
     }
 
-    function clickOut(delaySec, kind) {
+    // The audio clock and performance.now() run side by side. Sample their offset once per frame and smooth it, so a
+    // click for a given song position always lands on the same instant, however late the frame callback ran.
+    let audioOffsetN = 0;
+    function sampleAudioClock() {
+      const ac = state.audioCtx;
+      if (!ac || ac.state !== 'running') return;
+      let sample = null;
+      if (typeof ac.getOutputTimestamp === 'function') {
+        const ts = ac.getOutputTimestamp();
+        if (ts && ts.performanceTime > 0 && ts.contextTime > 0) sample = ts.contextTime * 1000 - ts.performanceTime;
+      }
+      if (sample === null) sample = ac.currentTime * 1000 - performance.now();
+      const cur = state.audioOffsetMs;
+      if (cur === null || Math.abs(sample - cur) > 50) {
+        state.audioOffsetMs = sample;
+        audioOffsetN = 1;
+      } else {
+        audioOffsetN = Math.min(audioOffsetN + 1, 200);
+        const a = Math.max(1 / audioOffsetN, 0.02);   // plain average at first, then a slow smoothing
+        state.audioOffsetMs = cur + (sample - cur) * a;
+      }
+    }
+
+    function audioTimeFor(perfMs) {
+      const ac = state.audioCtx;
+      if (!ac) return 0;
+      if (state.audioOffsetMs === null) sampleAudioClock();
+      if (state.audioOffsetMs === null) return ac.currentTime + (perfMs - performance.now()) / 1000;
+      return (perfMs + state.audioOffsetMs) / 1000;
+    }
+
+    // Click at an absolute performance.now() time (ms) on the chosen output(s)
+    function clickOutAt(perfMs, kind) {
       const mode = state.settings.metronomeOutput;
-      if (mode === 'audio' || mode === 'both') playClick(delaySec, kind);
-      if (mode === 'midi' || mode === 'both') sendMidiClick(delaySec, kind);
+      if (mode === 'audio' || mode === 'both') playClickAt(audioTimeFor(perfMs), kind);
+      if (mode === 'midi' || mode === 'both') sendMidiClickAt(perfMs, kind);
+    }
+
+    // Click `delaySec` seconds from now
+    function clickOut(delaySec, kind) {
+      clickOutAt(performance.now() + Math.max(0, delaySec) * 1000, kind);
     }
 
     // One click per beat; compound metres (6/8, 9/8, 12/8) click on the dotted quarter
@@ -1552,19 +1754,23 @@
     }
 
     // Schedule clicks for every beat up to horizonTick (called each frame with a small look-ahead)
-    function scheduleMetronome(horizonTick, tpms) {
+    // Every click is placed from the frame's own timestamp and its distance to the playhead, so successive clicks
+    // keep exactly the spacing of the click grid whatever the frame jitter is.
+    function scheduleMetronome(horizonTick, tpms, frameNow) {
       const ct = getClickTicks();
+      sampleAudioClock();
+      const msPerTick = 1 / (tpms * state.speed);
       let guard = 0;
-      while (state.nextBeatTick < horizonTick && guard++ < 16) {
+      while (state.nextBeatTick < horizonTick && guard++ < 32) {
         const tick = state.nextBeatTick;
-        const delaySec = Math.max(0, (tick - state.currentTick) / (tpms * state.speed)) / 1000;
-        clickOut(delaySec, clickKind(tick));
+        clickOutAt(frameNow + Math.max(0, tick - state.currentTick) * msPerTick, clickKind(tick));
         state.nextBeatTick += ct;
       }
     }
 
     function startCountIn() {
       ensureAudio();
+      sampleAudioClock();
       const bt = getBeatTicks();
       const beats = getBeatsPerBar();
       const beatMs = bt / (ticksPerMsAt(state.currentTick) * state.speed);
@@ -1587,27 +1793,62 @@
       }
     }
 
-    // ---- Loop: repeat a half bar / 1 / 2 / 4 bars, anchored at the bar under the playhead
+    // ---- Loop: repeat 1..16 bars. Anchored at the bar under the playhead, or stepped with the - / + buttons
     function getActiveLoop() {
       return (state.loopBars > 0 && state.loop) ? state.loop : null;
+    }
+
+    function totalBars() {
+      return Math.max(1, Math.ceil(state.song.totalTicks / state.song.ticksPerMeasure - 1e-6));
+    }
+
+    function loopStartBar() {
+      const loop = getActiveLoop();
+      return loop ? Math.floor(loop.start / state.song.ticksPerMeasure + 1e-6) + 1 : 1;
     }
 
     function anchorLoop() {
       if (!state.song || !(state.loopBars > 0)) {
         state.loop = null;
+        updateLoopUI();
         return;
       }
       const m = state.song.ticksPerMeasure;
-      const seg = m * state.loopBars;
-      const unit = state.loopBars < 1 ? seg : m; // half bar snaps to half bars, longer loops start on a bar line
-      let start = Math.floor((state.currentTick + 1) / unit) * unit;
-      let end = start + seg;
-      if (end > state.song.totalTicks) {
-        start = Math.floor(Math.max(0, state.song.totalTicks - seg) / unit) * unit;
-        end = Math.min(state.song.totalTicks, start + seg);
-      }
-      state.loop = { start, end };
+      const lastBarStart = Math.floor((state.song.totalTicks - 1) / m) * m;
+      let start = Math.floor((state.currentTick + 1) / m) * m;
+      start = Math.max(0, Math.min(start, lastBarStart));
+      state.loop = { start, end: Math.min(state.song.totalTicks, start + state.loopBars * m) };
       state.loopAhead = false;
+      updateLoopUI();
+    }
+
+    // Jump the loop (and the playhead) to a given start bar
+    function setLoopStartBar(bar, opts = {}) {
+      if (!state.song || !(state.loopBars > 0)) return;
+      const { jump = true, save = true } = opts;
+      const m = state.song.ticksPerMeasure;
+      bar = Math.max(1, Math.min(totalBars(), Math.round(bar)));
+      const start = (bar - 1) * m;
+      state.loop = { start, end: Math.min(state.song.totalTicks, start + state.loopBars * m) };
+      state.loopAhead = false;
+      if (jump) {
+        stopAllMidiNotes();
+        state.currentTick = start;
+        state.waitingForUser = false;
+        state.countIn = null;
+        state.stepFreshPresses.clear();
+        if (state.mode === 'learn') syncLearnStepToCurrentTick();
+        alignMetronome();
+      }
+      updateLoopUI();
+      if (save) saveSongPrefs();
+    }
+
+    // - / + : move the loop start by one loop length (e.g. bars 1-4 -> bars 5-8)
+    function stepLoopStart(dir) {
+      if (!getActiveLoop()) return;
+      setLoopStartBar(loopStartBar() + dir * state.loopBars);
+      showToast(describeLoop());
     }
 
     function ensureLoopCoversPlayhead() {
@@ -1627,11 +1868,20 @@
       const loop = getActiveLoop();
       if (!loop) return 'Loop off';
       const m = state.song.ticksPerMeasure;
-      const bar = Math.floor(loop.start / m) + 1;
-      if (state.loopBars < 1) {
-        return `Looping ${((loop.start / m) % 1) < 0.25 ? 'first' : 'second'} half of bar ${bar}`;
-      }
-      return state.loopBars === 1 ? `Looping bar ${bar}` : `Looping bars ${bar}–${bar + state.loopBars - 1}`;
+      const startBar = loopStartBar();
+      const endBar = Math.min(totalBars(), Math.ceil(loop.end / m - 1e-6));
+      return endBar > startBar ? `Looping bars ${startBar}–${endBar}` : `Looping bar ${startBar}`;
+    }
+
+    function updateLoopUI() {
+      const loop = state.song ? getActiveLoop() : null;
+      loopStepper.classList.toggle('hidden', !loop);
+      if (!loop) return;
+      const startBar = loopStartBar();
+      loopStartLabel.textContent = `Bar ${startBar}`;
+      loopStartLabel.title = describeLoop();
+      loopStartDec.disabled = startBar <= 1;
+      loopStartInc.disabled = startBar + state.loopBars > totalBars();
     }
 
     // ---- Transport
@@ -1891,11 +2141,11 @@
           }
 
           if (!state.waitingForUser && state.settings.metronome) {
-            const lookTicks = 80 * ticksPerMs * state.speed; // ~80 ms look-ahead for sample-accurate clicks
+            const lookTicks = 150 * ticksPerMs * state.speed; // ~150 ms look-ahead for sample-accurate clicks
             let horizon = state.currentTick + lookTicks;
             if (state.settings.waitMode) horizon = Math.min(horizon, stopTick);
             if (loop) horizon = Math.min(horizon, loop.end);
-            scheduleMetronome(horizon, ticksPerMs);
+            scheduleMetronome(horizon, ticksPerMs, now);
           }
         }
       }
@@ -2128,7 +2378,7 @@
       // 5. Group visible notes by startTick for clean stem sharing & second-interval chord offsets
       const useFlats = state.song.keySig.sf < 0;
       const visibleNotes = state.song.notes.filter(
-        n => n.endTick >= firstVisibleTick && n.startTick <= lastVisibleTick
+        n => n.hand && n.endTick >= firstVisibleTick && n.startTick <= lastVisibleTick
       );
 
       // Group notes at identical startTick
@@ -2504,6 +2754,7 @@
     function computeKeyboardRange(song) {
       let lo = 127, hi = 0;
       for (const n of song.notes) {
+        if (!n.hand) continue;
         if (n.pitch < lo) lo = n.pitch;
         if (n.pitch > hi) hi = n.pitch;
       }
@@ -2528,7 +2779,7 @@
         if (step) for (const p of step.requiredPitches) out.add(p);
       } else if (state.isPlaying) {
         for (const n of state.song.notes) {
-          if (state.currentTick >= n.startTick && state.currentTick <= n.endTick) out.add(n.pitch);
+          if (n.hand && state.currentTick >= n.startTick && state.currentTick <= n.endTick) out.add(n.pitch);
         }
       }
       return out;
@@ -2631,6 +2882,7 @@
     function setMode(newMode) {
       if (state.mode === newMode) return;
       stopAllMidiNotes();
+      releaseAllUserKeys();
       state.mode = newMode;
       state.countIn = null;
       alignMetronome();
@@ -2645,6 +2897,7 @@
         modePlayBtn.className = 'px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900';
         syncLearnStepToCurrentTick();
       }
+      midiHealthCheck('Mode: ' + newMode);
     }
 
     modePlayBtn.addEventListener('click', () => setMode('play'));
@@ -2658,17 +2911,14 @@
       resetToStart();
     });
 
-    // Speed buttons (1x, 1/2x, 1/4x)
-    speedBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const val = parseFloat(btn.dataset.speed);
-        state.speed = val;
-        speedBtns.forEach(b => {
-          b.className = 'speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition text-stone-700 hover:text-stone-900';
-        });
-        btn.className = 'speed-btn px-2.5 py-1.5 rounded-md text-xs sm:text-sm font-medium transition bg-stone-900 text-[#F9F5EB] shadow-xs';
-      });
-    });
+    // Playback speed: 50 % .. 100 % in 5 % steps
+    function setSpeedPercent(pct, save = true) {
+      pct = Math.max(50, Math.min(100, Math.round(pct / 5) * 5));
+      state.speed = pct / 100;
+      speedSelect.value = String(pct);
+      if (save) saveSongPrefs();
+    }
+    speedSelect.addEventListener('change', () => setSpeedPercent(parseInt(speedSelect.value, 10) || 100));
 
     // --------------------------------------------------------------------------
     // 7b. LIBRARY (built-in pieces + MIDI files hosted in the site's /midi folder)
@@ -2807,13 +3057,29 @@
       }
     }
 
-    // Parse a MIDI buffer and make it the current piece
-    async function loadSongFromBuffer(buf, title, id, silent) {
+    // Parse a MIDI buffer and make it the current piece.
+    // songKey identifies the file in the saved per-song preferences (defaults to the library id or title + size).
+    async function loadSongFromBuffer(buf, title, id, silent, songKey) {
       setPlaying(false);
       const parsed = parseMidiFile(buf, title);
       if (!parsed.notes.length) {
         throw new Error('No playable notes found in MIDI');
       }
+
+      // Restore what was set up the last time this file was open
+      state.restoringPrefs = true;
+      const key = songKey || songKeyFor(id, title, buf.byteLength);
+      const stored = readAllSongPrefs()[key];
+      let prefs;
+      if (stored) {
+        prefs = sanitizePrefs(stored);
+      } else {
+        prefs = sanitizePrefs({ ...DEFAULT_SONG_PREFS, ...(legacySongSeed || {}) });
+        legacySongSeed = null;
+      }
+      state.songKey = key;
+      applySongPrefs(prefs);
+
       assignHands(parsed);
       state.song = parsed;
       state.learnSteps = buildLearnSteps(parsed);
@@ -2825,9 +3091,13 @@
       }
       state.kbRange = computeKeyboardRange(parsed);
       updateHandSettingsUI();
+      updateSubdivHint();
       state.currentLibraryId = id || null;
       pieceTitleEl.textContent = parsed.title;
       resetToStart();
+      if (state.loopBars > 0) setLoopStartBar(prefs.loopStartBar, { save: false });
+      else updateLoopUI();
+      state.restoringPrefs = false;
       renderLibrary();
       if (!silent) showToast(`Loaded: ${parsed.title}`);
     }
@@ -2840,7 +3110,7 @@
       try {
         const buf = await file.arrayBuffer();
         const cleanName = file.name.replace(/\.(mid|midi)$/i, '');
-        await loadSongFromBuffer(buf, cleanName, null);
+        await loadSongFromBuffer(buf, cleanName, null, false, 'file:' + file.name + ':' + file.size);
       } catch (err) {
         showToast(err && /No playable/.test(err.message) ? 'No playable notes found in MIDI' : 'Could not read MIDI file');
       } finally {
@@ -2851,6 +3121,255 @@
     // --------------------------------------------------------------------------
     // 7c. SETTINGS
     // --------------------------------------------------------------------------
+    // --------------------------------------------------------------------------
+    // 7c-1. PER-SONG PREFERENCES (split point, hands / parts, practising hand, loop, speed)
+    // --------------------------------------------------------------------------
+    const SONG_PREFS_KEY = 'midiTrainerSongPrefs';
+    const DEFAULT_SONG_PREFS = {
+      handsFromTracks: true, handSplit: 60, hand: 'both',
+      leftVoice: null, rightVoice: null,
+      loopBars: 0, loopStartBar: 1, speed: 100
+    };
+
+    // First run of this version: the old global hand settings become the first song's preferences
+    let legacySongSeed = null;
+    try {
+      if (localStorage.getItem(SONG_PREFS_KEY) === null && localStorage.getItem('midiTrainerSettings')) {
+        legacySongSeed = {
+          handsFromTracks: state.settings.handsFromTracks,
+          handSplit: state.settings.handSplit,
+          hand: state.settings.hand
+        };
+      }
+    } catch (e) {}
+
+    function readAllSongPrefs() {
+      try {
+        const all = JSON.parse(localStorage.getItem(SONG_PREFS_KEY) || '{}');
+        return (all && typeof all === 'object') ? all : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function writeAllSongPrefs(all) {
+      const keys = Object.keys(all);
+      if (keys.length > 200) {   // keep the most recently used 200 songs
+        keys.sort((a, b) => (all[a].t || 0) - (all[b].t || 0));
+        keys.slice(0, keys.length - 200).forEach(k => delete all[k]);
+      }
+      try {
+        localStorage.setItem(SONG_PREFS_KEY, JSON.stringify(all));
+      } catch (e) {}
+    }
+
+    function songKeyFor(id, title, size) {
+      return id ? 'lib:' + id : 'file:' + title + ':' + size;
+    }
+
+    function sanitizePrefs(p) {
+      const out = { ...DEFAULT_SONG_PREFS, ...p };
+      out.handsFromTracks = out.handsFromTracks !== false;
+      out.handSplit = Math.max(48, Math.min(72, Math.round(Number(out.handSplit)) || 60));
+      if (!['both', 'left', 'right'].includes(out.hand)) out.hand = 'both';
+      out.leftVoice = typeof out.leftVoice === 'string' ? out.leftVoice : null;
+      out.rightVoice = typeof out.rightVoice === 'string' ? out.rightVoice : null;
+      out.loopBars = Math.max(0, Math.min(16, Math.round(Number(out.loopBars)) || 0));
+      out.loopStartBar = Math.max(1, Math.round(Number(out.loopStartBar)) || 1);
+      out.speed = Math.max(50, Math.min(100, Math.round((Number(out.speed) || 100) / 5) * 5));
+      return out;
+    }
+
+    function saveSongPrefs() {
+      if (!state.songKey || state.restoringPrefs || !state.song) return;
+      const all = readAllSongPrefs();
+      const ov = state.voiceOverride;
+      all[state.songKey] = {
+        handsFromTracks: !!state.settings.handsFromTracks,
+        handSplit: state.settings.handSplit,
+        hand: state.settings.hand,
+        leftVoice: ov ? ov.left : null,
+        rightVoice: ov ? ov.right : null,
+        loopBars: state.loopBars,
+        loopStartBar: state.loopBars > 0 ? loopStartBar() : 1,
+        speed: Math.round(state.speed * 100),
+        t: Date.now()
+      };
+      writeAllSongPrefs(all);
+    }
+
+    function applySongPrefs(p) {
+      const s = state.settings;
+      s.handsFromTracks = p.handsFromTracks;
+      s.handSplit = p.handSplit;
+      s.hand = p.hand;
+      state.voiceOverride = (p.leftVoice && p.rightVoice) ? { left: p.leftVoice, right: p.rightVoice } : null;
+      state.loopBars = p.loopBars;
+      setSpeedPercent(p.speed, false);
+      loopSelect.value = String(p.loopBars);
+      handSelect.value = p.hand;
+    }
+
+    // --------------------------------------------------------------------------
+    // 7c-2. CLICKS-PER-BEAT HINT (what the choices mean in the current time signature)
+    // --------------------------------------------------------------------------
+    const NOTE_VALUES = [
+      [4, 'whole note', 'whole notes'], [3, 'dotted half note', 'dotted half notes'], [2, 'half note', 'half notes'],
+      [1.5, 'dotted quarter note', 'dotted quarter notes'], [1, 'quarter note', 'quarter notes'],
+      [0.75, 'dotted eighth note', 'dotted eighths'], [0.5, 'eighth note', 'eighth notes'],
+      [0.375, 'dotted sixteenth note', 'dotted sixteenths'], [0.25, 'sixteenth note', 'sixteenth notes'],
+      [1 / 3, 'eighth-note triplet', 'eighth-note triplets'], [1 / 6, 'sixteenth-note triplet', 'sixteenth-note triplets'],
+      [0.125, 'thirty-second note', 'thirty-second notes']
+    ];
+    function noteValueName(quarters, plural) {
+      const hit = NOTE_VALUES.find(([v]) => Math.abs(v - quarters) < 0.005);
+      return hit ? hit[plural ? 2 : 1] : null;
+    }
+
+    function updateSubdivHint() {
+      if (!state.song) {
+        subdivHintEl.textContent = '';
+        return;
+      }
+      const ts = state.song.timeSig;
+      const q = getBeatTicks() / state.song.ticksPerQuarter;   // beat length in quarter notes
+      const beat = noteValueName(q, false);
+      const each = (n) => noteValueName(q / n, true) || `1/${n} of a beat`;
+      subdivHintEl.textContent =
+        `In ${ts.numerator}/${ts.denominator} the beat is ${beat ? 'a ' + beat : 'one click'}: ` +
+        `2 per beat = ${each(2)}, 3 = ${each(3)}, 4 = ${each(4)}. ` +
+        'The extra clicks are softer, and the speed never changes.';
+    }
+
+    // --------------------------------------------------------------------------
+    // 7c-3. VERSION & CHANGELOG
+    // --------------------------------------------------------------------------
+    const APP_VERSION = '6.0';
+    const APP_RELEASE_DATE = '2026-11-16';
+    // approx: true = date reconstructed afterwards
+    const CHANGELOG = [
+      {
+        version: '6.0', date: '2026-11-16',
+        features: [
+          'Loop length from 1 to 16 bars (the half-bar loop is gone).',
+          'Loop start stepper: − / bar number / + moves the loop by one loop length (bars 1–4, then 5–8 …). Scrolling the sheet still works too.',
+          'Playback speed is a dropdown from 50% to 100% in 5% steps.',
+          'Settings are remembered per MIDI file: split point, hand and part assignment, practising hand, loop and speed.',
+          'Pick the left and right hand parts yourself when "Use MIDI tracks as hands" is on; auto-detect stays the default.',
+          'Clicks-per-beat labels say what they mean in the current piece (eighths, triplets, sixteenths).',
+          'This Version tab.'
+        ],
+        fixes: [
+          'Metronome subdivisions were placed with timing jitter that sounded like swing; every click now sits on an exact, even grid.',
+          'Switching between Play and Learn no longer sends an "All Notes Off" to the piano when nothing is sounding, clears stale held keys and re-checks the MIDI link, repairing it automatically if it dropped.'
+        ]
+      },
+      {
+        version: '5.0', date: '2026-11-15',
+        features: [
+          '"Wait for me" can be switched off: the music keeps flowing and missed notes are scored at the end.',
+          'MIDI click uses the General MIDI metronome notes on channel 10 (34 bell, 33 click); high piano keys remain as a fallback.',
+          'Keep screen on option.',
+          'Reconnect button and connection log for the USB MIDI link.'
+        ],
+        fixes: [
+          'MIDI watchdog: re-attaches a dropped listener, re-opens a closed port, asks for a fresh connection after the tablet was in the background, and clears keys that were stuck after a disconnect.',
+          'The audio click option no longer mentions USB: it is plain audio from the device.'
+        ]
+      },
+      {
+        version: '4.0', date: '2026-11-15',
+        features: [
+          'Use MIDI tracks as hands, detected from track names and pitch.',
+          'Split point slider for files without separate hand tracks.'
+        ],
+        fixes: [
+          'Staff placement and Learn mode follow the real hand assignment instead of a fixed middle-C split.'
+        ]
+      },
+      {
+        version: '3.0', date: '2026-11-15', approx: true,
+        features: [
+          'Clicks per beat (1 to 4).',
+          'Audio click volume up to 300% with a limiter.',
+          'Three audio click sounds: beep, wood block, tick.',
+          'Loop of ½, 1, 2 or 4 bars with a highlighted band on the sheet, in Play and Learn mode.'
+        ],
+        fixes: ['The settings panel scrolls on small screens.']
+      },
+      {
+        version: '2.0', date: '2026-11-14', approx: true,
+        features: [
+          'Left / right / both hands selector in Learn mode; the other hand is greyed out.',
+          'Metronome output: audio, MIDI or both, with a Test click button.'
+        ],
+        fixes: []
+      },
+      {
+        version: '1.0', date: '2026-11-14', approx: true,
+        features: [
+          'Learn mode metronome at the tempo the piece was composed in, with a one-bar count-in.',
+          'Late tolerance: playback only waits when you are later than a set time (default 200 ms).',
+          'On-screen keyboard: yellow = next key, green = correct, red = wrong key.',
+          'Fauré — Pavane as the default piece.',
+          'Online library: MIDI files from the midi/ folder of the site.'
+        ],
+        fixes: ['Playback to the piano is always sent on MIDI channel 1 (the Pavane uses channel 3, which many pianos ignore).']
+      },
+      {
+        version: '0.x', date: '', approx: true, label: 'Original app (before 14 Nov 2026)',
+        features: ['Play and Learn modes, engraved grand-staff sheet, USB MIDI in and out, MIDI file loading, speeds 1×, ½× and ¼×.'],
+        fixes: []
+      }
+    ];
+
+    function formatReleaseDate(iso, approx) {
+      if (!iso) return '';
+      const d = new Date(iso + 'T12:00:00');
+      const text = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return (approx ? '~' : '') + text;
+    }
+
+    function renderChangelog() {
+      aboutVersionEl.textContent = `Version ${APP_VERSION}`;
+      aboutDateEl.textContent = `Released ${formatReleaseDate(APP_RELEASE_DATE, false)}`;
+      changelogListEl.textContent = '';
+      CHANGELOG.forEach((rel, idx) => {
+        const box = document.createElement('div');
+        const head = document.createElement('p');
+        head.className = 'font-semibold text-stone-900';
+        const when = rel.label || formatReleaseDate(rel.date, rel.approx);
+        head.textContent = (rel.label ? '' : 'v' + rel.version + ' · ') + when + (idx === 0 ? ' · current' : '');
+        box.appendChild(head);
+        for (const [title, items] of [['New features', rel.features], ['Bug fixes', rel.fixes]]) {
+          if (!items || !items.length) continue;
+          const h = document.createElement('p');
+          h.className = 'mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-stone-500';
+          h.textContent = title;
+          box.appendChild(h);
+          const ul = document.createElement('ul');
+          ul.className = 'mt-0.5 ml-4 list-disc space-y-0.5 text-[12px] leading-snug text-stone-700';
+          for (const text of items) {
+            const li = document.createElement('li');
+            li.textContent = text;
+            ul.appendChild(li);
+          }
+          box.appendChild(ul);
+        }
+        changelogListEl.appendChild(box);
+      });
+    }
+
+    function showSettingsTab(which) {
+      const about = which === 'about';
+      settingsPane.classList.toggle('hidden', about);
+      aboutPane.classList.toggle('hidden', !about);
+      tabSettingsBtn.className = 'flex-1 px-3 py-1.5 rounded-md text-xs font-medium ' + (about ? 'text-stone-700 hover:text-stone-900' : 'bg-stone-900 text-[#F9F5EB] shadow-xs');
+      tabAboutBtn.className = 'flex-1 px-3 py-1.5 rounded-md text-xs font-medium ' + (about ? 'bg-stone-900 text-[#F9F5EB] shadow-xs' : 'text-stone-700 hover:text-stone-900');
+    }
+    tabSettingsBtn.addEventListener('click', () => showSettingsTab('settings'));
+    tabAboutBtn.addEventListener('click', () => showSettingsTab('about'));
+
     function applySettingsToUI() {
       setMetronomeEl.checked = !!state.settings.metronome;
       setCountInEl.checked = !!state.settings.countIn;
@@ -2870,6 +3389,7 @@
       clickVolValueEl.textContent = state.settings.clickVolume + '%';
       updateOutputRows();
       updateHandSettingsUI();
+      updateSubdivHint();
     }
 
     function updateToleranceHint() {
@@ -2887,6 +3407,7 @@
 
     setSubdivEl.addEventListener('change', () => {
       state.settings.clickSubdiv = parseInt(setSubdivEl.value, 10) || 1;
+      updateSubdivHint();
       alignMetronome();
       saveSettings();
     });
@@ -2904,11 +3425,26 @@
     });
 
     loopSelect.addEventListener('change', () => {
-      state.loopBars = parseFloat(loopSelect.value) || 0;
+      state.loopBars = parseInt(loopSelect.value, 10) || 0;
       anchorLoop();
       if (state.mode === 'learn' && state.song) syncLearnStepToCurrentTick();
       alignMetronome();
+      updateLoopUI();
+      saveSongPrefs();
       showToast(describeLoop());
+    });
+    loopStartDec.addEventListener('click', () => stepLoopStart(-1));
+    loopStartInc.addEventListener('click', () => stepLoopStart(+1));
+
+    function onVoiceSelectChange() {
+      state.voiceOverride = { left: setLeftVoiceEl.value, right: setRightVoiceEl.value };
+      refreshHands();
+    }
+    setLeftVoiceEl.addEventListener('change', onVoiceSelectChange);
+    setRightVoiceEl.addEventListener('change', onVoiceSelectChange);
+    trackMapReset.addEventListener('click', () => {
+      state.voiceOverride = null;
+      refreshHands();
     });
 
     setHandsTracksEl.addEventListener('change', () => {
@@ -2935,6 +3471,7 @@
       }
       state.learnSteps = steps;
       saveSettings();
+      saveSongPrefs();
       if (state.mode === 'learn') syncLearnStepToCurrentTick();
     });
 
@@ -3078,6 +3615,7 @@
       }
       anchorLoop();
       alignMetronome();
+      saveSongPrefs();
     }
 
     canvas.addEventListener('mousedown', (e) => beginScrub(e.clientX));
@@ -3123,6 +3661,7 @@
     // 8. INITIALIZATION & MAIN ANIMATION LOOP
     // --------------------------------------------------------------------------
     function mainLoop(now) {
+      sampleAudioClock();   // keep the audio/performance clock offset converged before playback starts
       updateSimulation(now);
       renderSheetMusic();
       renderKeyboard();
@@ -3131,6 +3670,7 @@
 
     window.onload = function () {
       applySettingsToUI();
+      renderChangelog();
       resizeCanvas();
 
       // Default piece: Fauré — Pavane (embedded, so it works even offline / from a local file)
