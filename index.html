@@ -246,7 +246,21 @@
               <option value="audio">Audio (this device)</option>
               <option value="midi">MIDI → piano</option>
               <option value="both">Both</option>
+              <option value="piano">Piano's own metronome (MIDI Start)</option>
             </select>
+          </div>
+
+          <div id="pianoMetroRows" class="hidden space-y-2">
+            <p class="text-[11px] leading-relaxed text-stone-500">Pressing play tells the piano to start its own metronome (MIDI Start), and pausing stops it. The tempo and sound are the piano's own metronome settings. Not every piano reacts to this: use the two buttons to test yours.</p>
+            <div class="flex gap-2">
+              <button id="pianoStartBtn" type="button" class="px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Send Start</button>
+              <button id="pianoStopBtn" type="button" class="px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Send Stop</button>
+            </div>
+            <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+              <span class="text-stone-800">Also send MIDI clock (song tempo)</span>
+              <input id="setMidiClock" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+            </label>
+            <p class="text-[11px] leading-relaxed text-stone-500">Some instruments follow the tempo of incoming MIDI clock when set to external sync. Harmless if yours ignores it.</p>
           </div>
 
           <div id="audioClickRows" class="space-y-3">
@@ -494,7 +508,8 @@
 
       // Metronome / count-in
       audioCtx: null,
-      nextBeatTick: 0,         // Next beat (in ticks) that has not been clicked yet
+      nextBeatTick: 0,             // Next beat (in ticks) that has not been clicked yet
+      nextClockTick: null,         // Next MIDI clock pulse (in ticks), piano metronome mode
       countIn: null,           // { startMs, beatMs, beats, endMs } while counting in
       matchedHeld: new Set(),  // Pitches just matched in learn mode that are still held down
 
@@ -543,7 +558,8 @@
       clickVolume: 100,          // audio click volume in %, 0..300
       clickSound: 'beep',        // 'beep' | 'wood' | 'tick'  (audio clicks)
       hand: 'both',              // 'both' | 'right' | 'left'  (Learn mode)
-      metronomeOutput: 'audio',  // 'audio' | 'midi' | 'both'
+      metronomeOutput: 'audio',  // 'audio' | 'midi' | 'both' | 'piano' (the piano's own metronome via MIDI Start/Stop)
+      sendMidiClock: false,      // with 'piano': also send MIDI clock at the song tempo
       outputMode: 'auto',        // where the music is heard: 'auto' (MIDI if a piano is connected, else built-in audio) | 'midi' | 'audio'
       midiClickMode: 'gm',       // 'gm' (GM metronome notes on channel 10) | 'piano' (high piano keys, fallback)
       waitMode: true,            // Learn mode: stop and wait when you are later than the tolerance
@@ -558,7 +574,7 @@
     };
     const ALLOWED_SETTINGS = {
       hand: ['both', 'right', 'left'],
-      metronomeOutput: ['audio', 'midi', 'both'],
+      metronomeOutput: ['audio', 'midi', 'both', 'piano'],
       outputMode: ['auto', 'midi', 'audio'],
       clickSound: ['beep', 'wood', 'tick'],
       clickSubdiv: [1, 2, 3, 4],
@@ -577,6 +593,7 @@
         merged.waitMode = merged.waitMode !== false;
         merged.keepAwake = merged.keepAwake !== false;
         merged.advancedTraining = merged.advancedTraining === true;
+        merged.sendMidiClock = merged.sendMidiClock === true;
         const clampInt = (v, lo, hi, d) => { v = Math.round(Number(v)); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
         merged.accGateMs = clampInt(merged.accGateMs, 20, 1000, 100);
         merged.accZeroMs = clampInt(merged.accZeroMs, 50, 3000, 500);
@@ -658,6 +675,7 @@
     const setKeepAwakeEl = document.getElementById('setKeepAwake');
     const midiReconnectBtn = document.getElementById('midiReconnectBtn');
     const midiLogEl = document.getElementById('midiLog');
+    const setMidiClockEl = document.getElementById('setMidiClock');
     const advancedBar = document.getElementById('advancedBar');
     const loopRepGroup = document.getElementById('loopRepGroup');
     const loopRepCountEl = document.getElementById('loopRepCount');
@@ -1970,7 +1988,7 @@
           } catch (e) { state.audioCtx = null; }
         }
       }
-      if (state.audioCtx && state.audioCtx.state === 'suspended') {
+      if (state.audioCtx && (state.audioCtx.state === 'suspended' || state.audioCtx.state === 'interrupted')) {
         state.audioCtx.resume();
       }
       return state.audioCtx;
@@ -2009,6 +2027,7 @@
     function playClickAt(t, kind) {
       const ac = state.audioCtx;
       if (!ac || !state.masterGain) return;
+      if (!isFinite(t)) t = ac.currentTime;
       t = Math.max(t, ac.currentTime);
       const level = kind === 'accent' ? 1 : (kind === 'sub' ? 0.4 : 0.7);
       const sound = state.settings.clickSound;
@@ -2062,6 +2081,40 @@
     const MIDI_CLICK_GM = { channel: 9, accentNote: 34, beatNote: 33, velAccent: 115, velBeat: 95, velSub: 60, lenMs: 80 };
     const MIDI_CLICK_PIANO = { channel: 0, accentNote: 108, beatNote: 103, velAccent: 110, velBeat: 85, velSub: 50, lenMs: 60 };
 
+    // ---- The piano's own metronome: MIDI real-time Start / Stop (and optionally MIDI clock)
+    let pianoMetroOn = false;
+    function sendMidiRealtime(byte, ts) {
+      const out = state.midiOutputs.find(o => o.id === state.selectedOutputId);
+      if (!out) return false;
+      try {
+        if (ts === undefined) out.send([byte]); else out.send([byte], ts);
+        return true;
+      } catch (e) { return false; }
+    }
+    function syncPianoMetronome() {
+      const want = !!(state.settings.metronome && state.settings.metronomeOutput === 'piano' && state.isPlaying);
+      if (want === pianoMetroOn) return;
+      pianoMetroOn = want;
+      state.nextClockTick = null;
+      const ok = sendMidiRealtime(want ? 0xFA : 0xFC);
+      logMidi((want ? 'Sent MIDI Start' : 'Sent MIDI Stop') + (ok ? ' (piano metronome)' : ': no MIDI output connected'));
+    }
+    // MIDI clock: 24 pulses per quarter note, placed ahead of time like the clicks
+    function scheduleMidiClock(frameNow) {
+      if (!pianoMetroOn || !state.settings.sendMidiClock || state.waitingForUser || !state.song) return;
+      const per = state.song.ticksPerQuarter / 24;
+      const tpms = ticksPerMsAt(state.currentTick);
+      const horizon = state.currentTick + 150 * tpms * state.speed;
+      if (state.nextClockTick === null || state.nextClockTick > horizon + per * 2 || state.nextClockTick < state.currentTick - per * 2) {
+        state.nextClockTick = Math.ceil(state.currentTick / per) * per;
+      }
+      let guard = 0;
+      while (state.nextClockTick < horizon && guard++ < 24) {
+        sendMidiRealtime(0xF8, frameNow + Math.max(0, state.nextClockTick - state.currentTick) / (tpms * state.speed));
+        state.nextClockTick += per;
+      }
+    }
+
     // Send a MIDI click at an absolute performance.now() time (ms)
     function sendMidiClickAt(perfMs, kind) {
       const out = state.midiOutputs.find(o => o.id === state.selectedOutputId);
@@ -2078,15 +2131,27 @@
     // The audio clock and performance.now() run side by side. Sample their offset once per frame and smooth it, so a
     // click for a given song position always lands on the same instant, however late the frame callback ran.
     let audioOffsetN = 0;
+    let audioClockLogged = false;
     function sampleAudioClock() {
       const ac = state.audioCtx;
       if (!ac || ac.state !== 'running') return;
-      let sample = null;
+      const renderOff = ac.currentTime * 1000 - performance.now();   // render clock vs performance clock
+      let sample = null, source = 'render clock';
       if (typeof ac.getOutputTimestamp === 'function') {
-        const ts = ac.getOutputTimestamp();
-        if (ts && ts.performanceTime > 0 && ts.contextTime > 0) sample = ts.contextTime * 1000 - ts.performanceTime;
+        try {
+          const ts = ac.getOutputTimestamp();
+          if (ts && ts.performanceTime > 0 && ts.contextTime > 0) {
+            const s = ts.contextTime * 1000 - ts.performanceTime;
+            // What you hear lags what is being rendered by the output latency (0 to 1 s). Anything else is a device quirk.
+            if (isFinite(s) && s <= renderOff + 5 && s >= renderOff - 1000) { sample = s; source = 'output timestamp'; }
+          }
+        } catch (e) {}
       }
-      if (sample === null) sample = ac.currentTime * 1000 - performance.now();
+      if (sample === null || !isFinite(sample)) sample = renderOff;
+      if (!audioClockLogged) {
+        audioClockLogged = true;
+        logMidi(`Audio clock: ${source}, output delay about ${Math.round(renderOff - sample)} ms`);
+      }
       const cur = state.audioOffsetMs;
       if (cur === null || Math.abs(sample - cur) > 50) {
         state.audioOffsetMs = sample;
@@ -2102,8 +2167,9 @@
       const ac = state.audioCtx;
       if (!ac) return 0;
       if (state.audioOffsetMs === null) sampleAudioClock();
-      if (state.audioOffsetMs === null) return ac.currentTime + (perfMs - performance.now()) / 1000;
-      return (perfMs + state.audioOffsetMs) / 1000;
+      let t = state.audioOffsetMs === null ? ac.currentTime + (perfMs - performance.now()) / 1000 : (perfMs + state.audioOffsetMs) / 1000;
+      if (!isFinite(t)) t = ac.currentTime;
+      return Math.min(t, ac.currentTime + 1.0);   // never park a click far in the future (it would sound like silence)
     }
 
     // Click at an absolute performance.now() time (ms) on the chosen output(s)
@@ -2309,6 +2375,7 @@
         }
       } else {
         state.isPlaying = false;
+        syncPianoMetronome();
         state.lastFrameTime = null;
         state.countIn = null;
         stopAllMidiNotes();
@@ -3825,11 +3892,20 @@
     // --------------------------------------------------------------------------
     // 7c-3. VERSION & CHANGELOG
     // --------------------------------------------------------------------------
-    const APP_VERSION = '7.6';
+    const APP_VERSION = '7.7';
     const APP_RELEASE_DATE = '2026-11-16';
     appVersionBadge.textContent = 'v' + APP_VERSION;
     // approx: true = date reconstructed afterwards
     const CHANGELOG = [
+      {
+        version: '7.7', date: '2026-11-18',
+        features: [
+          'New metronome choice: the piano\'s own metronome. Pressing play sends MIDI Start, pausing sends MIDI Stop (optionally with MIDI clock at the song tempo). Send Start / Send Stop test buttons in Settings.'
+        ],
+        fixes: [
+          'Audio metronome: clicks are now protected against devices that report their audio clock oddly (which could leave them silent); the connection log records the audio clock; audio that the system paused is resumed.'
+        ]
+      },
       {
         version: '7.6', date: '2026-11-17',
         features: [
@@ -4045,6 +4121,7 @@
       kbWrap.style.display = state.settings.showKeyboard ? '' : 'none';
       handSelect.value = state.settings.hand;
       setMetroOutEl.value = state.settings.metronomeOutput;
+      setMidiClockEl.checked = !!state.settings.sendMidiClock;
       setMidiClickEl.value = state.settings.midiClickMode;
       setWaitModeEl.checked = !!state.settings.waitMode;
       setKeepAwakeEl.checked = !!state.settings.keepAwake;
@@ -4068,8 +4145,9 @@
     // Show only the controls that matter for the chosen metronome output
     function updateOutputRows() {
       const mode = state.settings.metronomeOutput;
-      audioClickRows.style.display = mode === 'midi' ? 'none' : '';
-      midiClickRow.style.display = mode === 'audio' ? 'none' : '';
+      audioClickRows.style.display = (mode === 'midi' || mode === 'piano') ? 'none' : '';
+      midiClickRow.style.display = (mode === 'midi' || mode === 'both') ? '' : 'none';
+      document.getElementById('pianoMetroRows').classList.toggle('hidden', mode !== 'piano');
     }
 
     setSubdivEl.addEventListener('change', () => {
@@ -4203,8 +4281,24 @@
       if (state.mode === 'learn') syncLearnStepToCurrentTick();
     });
 
+    setMidiClockEl.addEventListener('change', () => {
+      state.settings.sendMidiClock = setMidiClockEl.checked;
+      state.nextClockTick = null;
+      saveSettings();
+    });
+    document.getElementById('pianoStartBtn').addEventListener('click', () => {
+      const ok = sendMidiRealtime(0xFA);
+      logMidi('Test: sent MIDI Start' + (ok ? '' : ' (no MIDI output connected)'));
+      showToast(ok ? 'MIDI Start sent' : 'No MIDI output connected');
+    });
+    document.getElementById('pianoStopBtn').addEventListener('click', () => {
+      const ok = sendMidiRealtime(0xFC);
+      logMidi('Test: sent MIDI Stop' + (ok ? '' : ' (no MIDI output connected)'));
+      showToast(ok ? 'MIDI Stop sent' : 'No MIDI output connected');
+    });
     setMetroOutEl.addEventListener('change', () => {
       state.settings.metronomeOutput = setMetroOutEl.value;
+      syncPianoMetronome();
       updateOutputRows();
       saveSettings();
     });
@@ -4268,7 +4362,11 @@
       else initWebMIDI();
     });
     testClickBtn.addEventListener('click', () => {
-      ensureAudio();
+      const ac = ensureAudio();
+      if (state.settings.metronomeOutput !== 'midi' && state.settings.metronomeOutput !== 'piano') {
+        if (!ac) showToast('No audio available on this device');
+        else if (ac.state !== 'running') showToast('Audio is starting: tap Test click once more');
+      }
       // Two beats with the chosen number of clicks per beat
       const n = Math.max(1, state.settings.clickSubdiv | 0);
       for (let b = 0; b < 2; b++) {
@@ -4288,6 +4386,7 @@
     }
     function setMetronomeOn(on) {
       state.settings.metronome = on;
+      syncPianoMetronome();
       setMetronomeEl.checked = on;
       updateMetroBtn();
       alignMetronome();
@@ -4463,10 +4562,12 @@
     // 8. INITIALIZATION & MAIN ANIMATION LOOP
     // --------------------------------------------------------------------------
     function mainLoop(now) {
+      syncPianoMetronome();
       updateTempoReadout();
       updateSplitUI(false);
       sampleAudioClock();   // keep the audio/performance clock offset converged before playback starts
       updateSimulation(now);
+      scheduleMidiClock(now);   // after the playhead moved to this frame's time, so pulses sit on an even grid
       renderSheetMusic();
       renderKeyboard();
       requestAnimationFrame(mainLoop);
