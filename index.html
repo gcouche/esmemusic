@@ -133,6 +133,16 @@
         <option value="left">Left hand</option>
       </select>
 
+      <!-- Key split (hands), with an optional separate split for the bar under the playhead -->
+      <div id="splitRow" class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800" title="Hand split: this note and above = right hand, below = left hand">
+        <span class="text-stone-600">Split</span>
+        <input id="setSplit" type="range" min="48" max="72" step="1" value="60" aria-label="Key split point" class="w-20 sm:w-28 accent-emerald-800 disabled:opacity-40" />
+        <span id="splitValue" class="tabular-nums w-10 text-center font-semibold">C4</span>
+        <button id="newSplitBtn" type="button" class="px-2.5 py-1.5 rounded-md border text-xs font-medium transition bg-[#F2ECE0] border-[#D6CBB8] text-stone-700 hover:bg-white disabled:opacity-40">New split</button>
+        <!-- Parked: per-bar split (kept in the code, hidden for now; see FEATURE_BAR_SPLIT) -->
+        <button id="barSplitBtn" type="button" class="hidden px-2.5 py-1.5 rounded-md border text-xs font-medium transition bg-[#F2ECE0] border-[#D6CBB8] text-stone-700 hover:bg-white disabled:opacity-40">Bar split</button>
+      </div>
+
       <!-- Loop: 1 to 16 bars, with a stepper for the start bar -->
       <select id="loopSelect" aria-label="Loop length" class="px-2.5 py-2 rounded-lg bg-[#FAF7F0] border border-[#D6CBB8] text-xs sm:text-sm font-medium text-stone-800 focus:outline-none">
         <option value="0">Loop: off</option>
@@ -187,7 +197,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
           </svg>
         </button>
-        <div id="settingsPopover" class="hidden absolute right-0 mt-2 w-80 max-w-[90vw] max-h-[80vh] overflow-y-auto p-4 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30 text-sm">
+        <div id="settingsPopover" class="hidden max-h-[80vh] overflow-y-auto p-4 rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl z-30 text-sm" style="position:fixed;top:4.5rem;left:50%;transform:translateX(-50%);width:20rem;max-width:92vw;box-sizing:border-box">
           <div class="flex w-full p-0.5 mb-3 rounded-lg bg-[#E5DEC9] border border-[#D6CBB8]" role="tablist">
             <button id="tabSettingsBtn" type="button" role="tab" class="flex-1 px-3 py-1.5 rounded-md text-xs font-medium bg-stone-900 text-[#F9F5EB] shadow-xs">Settings</button>
             <button id="tabAboutBtn" type="button" role="tab" class="flex-1 px-3 py-1.5 rounded-md text-xs font-medium text-stone-700 hover:text-stone-900">Version</button>
@@ -311,15 +321,9 @@
             </div>
           </div>
 
-          <div id="splitRow">
-            <div class="flex items-center justify-between">
-              <span class="text-stone-800">Split point</span>
-              <span id="splitValue" class="font-semibold text-stone-800 tabular-nums">C4 (middle C)</span>
-            </div>
-            <input id="setSplit" type="range" min="48" max="72" step="1" value="60" class="w-full mt-2 accent-emerald-800" />
-            <p class="mt-1 text-[11px] leading-relaxed text-stone-500">
-              This note and above = right hand (treble staff), below = left hand (bass staff).
-            </p>
+          <div class="flex items-center gap-3">
+            <button id="resetBarSplitsBtn" type="button" class="shrink-0 px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium disabled:opacity-40">Reset all new splits</button>
+            <p class="text-[11px] leading-relaxed text-stone-500">The key split and "New split" are in the top bar. This removes every new split of the current song and goes back to the main split.</p>
           </div>
 
           <hr class="border-[#DFD6C5]" />
@@ -335,6 +339,29 @@
             <input id="setKeepAwake" type="checkbox" class="w-5 h-5 accent-emerald-800" />
           </label>
           <p class="text-[11px] leading-relaxed text-stone-500">Stops the tablet from locking while you play, which can cut the USB MIDI connection.</p>
+
+          <hr class="border-[#DFD6C5]" />
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Advanced training</p>
+          <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+            <span class="text-stone-800">Advanced training</span>
+            <input id="setAdvanced" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+          </label>
+          <p class="text-[11px] leading-relaxed text-stone-500">Adds a bar under the top bar: a loop counter (stops after the number of loops you choose) and your accuracy in Learn mode: the last notes, and the total.</p>
+          <div id="advancedParams" class="hidden space-y-2.5">
+            <div>
+              <label for="setAccGate" class="block text-stone-800 mb-1">100% accuracy within (± ms)</label>
+              <input id="setAccGate" type="number" inputmode="numeric" min="20" max="1000" step="10" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none" />
+            </div>
+            <div>
+              <label for="setAccZero" class="block text-stone-800 mb-1">0% accuracy beyond (± ms)</label>
+              <input id="setAccZero" type="number" inputmode="numeric" min="50" max="3000" step="50" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none" />
+            </div>
+            <div>
+              <label for="setAccRoll" class="block text-stone-800 mb-1">Rolling average over the last (notes)</label>
+              <input id="setAccRoll" type="number" inputmode="numeric" min="3" max="100" step="1" class="w-full px-2.5 py-2 rounded-lg bg-white border border-stone-300 text-stone-800 text-sm focus:outline-none" />
+            </div>
+            <p class="text-[11px] leading-relaxed text-stone-500">Each note or chord scores 100% when you play it within the first value of the music, then falls in a straight line to 0% at the second value. A note you miss scores 0%. Pressing "Wait for me" keys late also counts as late.</p>
+          </div>
           </div>
 
           <div id="aboutPane" class="hidden space-y-4">
@@ -364,6 +391,27 @@
 
   </header>
 
+  <!-- Advanced training: loop counter + accuracy (only visible when switched on in Settings) -->
+  <div id="advancedBar" class="hidden w-full flex flex-wrap items-center gap-x-5 gap-y-1 px-3 sm:px-5 py-1.5 bg-[#EFE8D8] border-b border-[#DFD6C5] text-xs sm:text-sm text-stone-800 shrink-0 z-10">
+    <div id="loopRepGroup" class="hidden inline-flex items-center gap-1.5">
+      <span class="text-stone-600">Loops</span>
+      <span id="loopRepCount" class="font-semibold tabular-nums text-base">0</span>
+      <span class="text-stone-500">of</span>
+      <button id="repTargetDec" type="button" aria-label="Fewer loops" class="w-7 h-7 rounded-md bg-[#FAF7F0] border border-[#D6CBB8] font-semibold leading-none hover:bg-white active:bg-stone-200">&minus;</button>
+      <span id="repTargetVal" class="font-semibold tabular-nums w-7 text-center">10</span>
+      <button id="repTargetInc" type="button" aria-label="More loops" class="w-7 h-7 rounded-md bg-[#FAF7F0] border border-[#D6CBB8] font-semibold leading-none hover:bg-white active:bg-stone-200">+</button>
+      <button id="repReset" type="button" title="Start the loop count again" aria-label="Reset loop count" class="w-7 h-7 rounded-md bg-[#FAF7F0] border border-[#D6CBB8] leading-none hover:bg-white active:bg-stone-200">&#8634;</button>
+    </div>
+    <div class="inline-flex items-center gap-1.5" title="How close your key presses are to the music (Learn mode)">
+      <span class="text-stone-600">Accuracy</span>
+      <span class="text-stone-500">last <span id="accRollN">10</span></span>
+      <span id="accRolling" class="font-semibold tabular-nums text-base min-w-[3rem] text-center">&ndash;</span>
+      <span class="text-stone-500">total</span>
+      <span id="accTotal" class="font-semibold tabular-nums text-base min-w-[3rem] text-center">&ndash;</span>
+      <button id="accReset" type="button" title="Reset the accuracy" aria-label="Reset accuracy" class="w-7 h-7 rounded-md bg-[#FAF7F0] border border-[#D6CBB8] leading-none hover:bg-white active:bg-stone-200">&#8634;</button>
+    </div>
+  </div>
+
   <!-- Main Full-Bleed Sheet Music Canvas -->
   <main id="canvasContainer" class="relative flex-1 w-full overflow-hidden">
     <canvas id="sheetCanvas"></canvas>
@@ -379,6 +427,16 @@
     <canvas id="keyboardCanvas"></canvas>
   </section>
 
+  <div id="confirmModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div class="w-full max-w-sm rounded-xl bg-[#FAF7F0] border border-[#D6CBB8] shadow-xl p-4 space-y-3">
+      <p id="confirmText" class="text-sm text-stone-800"></p>
+      <div class="flex justify-end gap-2">
+        <button id="confirmCancel" type="button" class="px-3 py-2 rounded-lg bg-[#F2ECE0] border border-[#D6CBB8] text-stone-800 hover:bg-white text-xs font-medium">Keep</button>
+        <button id="confirmAlt" type="button" class="hidden px-3 py-2 rounded-lg bg-red-700 text-white hover:bg-red-800 text-xs font-medium"></button>
+        <button id="confirmOk" type="button" class="px-3 py-2 rounded-lg bg-red-700 text-white hover:bg-red-800 text-xs font-medium">Remove</button>
+      </div>
+    </div>
+  </div>
   <script>
     /**
      * ============================================================================
@@ -457,10 +515,16 @@
 
       // Learn mode score for the current run
       learnStats: { hit: 0, missed: 0 },
+      acc: { recent: [], sum: 0, n: 0 },   // accuracy of the notes played (Learn mode), 0..1 each
+      loopRep: 0,              // loop passes completed since the count was reset
+      waitStartMs: 0,          // when Learn mode stopped to wait for you
 
       // Per-song preferences
       songKey: null,           // identifies the current MIDI file in the saved preferences
       restoringPrefs: false,   // true while a song's saved preferences are being applied
+      barSplits: {},           // (parked feature) bar number (1-based) -> its own hand split pitch
+      splitChanges: [],        // [{ tick, pitch }] sorted: from this note on, a new hand split is in force
+      splitEdit: null,         // { tick, playTick }: the one new split that can be edited right now (locks when the playhead moves)
       voiceOverride: null,     // { left, right } = parts the user picked as hands (null = auto-detect)
 
       // Performance clock -> audio clock offset (ms), smoothed; keeps metronome clicks on an even grid
@@ -484,6 +548,11 @@
       midiClickMode: 'gm',       // 'gm' (GM metronome notes on channel 10) | 'piano' (high piano keys, fallback)
       waitMode: true,            // Learn mode: stop and wait when you are later than the tolerance
       keepAwake: true,           // keep the screen on (a locked tablet drops USB MIDI)
+      advancedTraining: false,   // show the loop counter + accuracy bar
+      accGateMs: 100,            // within +- this many ms = 100% accuracy
+      accZeroMs: 500,            // at +- this many ms or more = 0%
+      accRollN: 10,              // rolling average over this many notes
+      repTarget: 10,             // loops to practise
       midiInName: '',            // last chosen MIDI ports, remembered by name (ids change after a reconnect)
       midiOutName: ''
     };
@@ -507,6 +576,12 @@
         delete merged.midiClickSound;   // old setting, replaced by midiClickMode
         merged.waitMode = merged.waitMode !== false;
         merged.keepAwake = merged.keepAwake !== false;
+        merged.advancedTraining = merged.advancedTraining === true;
+        const clampInt = (v, lo, hi, d) => { v = Math.round(Number(v)); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+        merged.accGateMs = clampInt(merged.accGateMs, 20, 1000, 100);
+        merged.accZeroMs = clampInt(merged.accZeroMs, 50, 3000, 500);
+        merged.accRollN = clampInt(merged.accRollN, 3, 100, 10);
+        merged.repTarget = clampInt(merged.repTarget, 1, 999, 10);
         merged.midiInName = typeof merged.midiInName === 'string' ? merged.midiInName : '';
         merged.midiOutName = typeof merged.midiOutName === 'string' ? merged.midiOutName : '';
         merged.handsFromTracks = merged.handsFromTracks !== false;
@@ -583,6 +658,27 @@
     const setKeepAwakeEl = document.getElementById('setKeepAwake');
     const midiReconnectBtn = document.getElementById('midiReconnectBtn');
     const midiLogEl = document.getElementById('midiLog');
+    const advancedBar = document.getElementById('advancedBar');
+    const loopRepGroup = document.getElementById('loopRepGroup');
+    const loopRepCountEl = document.getElementById('loopRepCount');
+    const repTargetValEl = document.getElementById('repTargetVal');
+    const accRollingEl = document.getElementById('accRolling');
+    const accTotalEl = document.getElementById('accTotal');
+    const accRollNEl = document.getElementById('accRollN');
+    const setAdvancedEl = document.getElementById('setAdvanced');
+    const advancedParamsEl = document.getElementById('advancedParams');
+    const setAccGateEl = document.getElementById('setAccGate');
+    const setAccZeroEl = document.getElementById('setAccZero');
+    const setAccRollEl = document.getElementById('setAccRoll');
+    const barSplitBtn = document.getElementById('barSplitBtn');
+    const newSplitBtn = document.getElementById('newSplitBtn');
+    let FEATURE_BAR_SPLIT = false;   // parked: the per-bar split. Its code stays; only the button is hidden.
+    const resetBarSplitsBtn = document.getElementById('resetBarSplitsBtn');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmText = document.getElementById('confirmText');
+    const confirmOk = document.getElementById('confirmOk');
+    const confirmCancel = document.getElementById('confirmCancel');
+    const confirmAlt = document.getElementById('confirmAlt');
     const metroToggleBtn = document.getElementById('metroToggleBtn');
     const tempoReadoutEl = document.getElementById('tempoReadout');
     const appVersionBadge = document.getElementById('appVersionBadge');
@@ -1329,6 +1425,39 @@
       return hands;
     }
 
+    // Hand split in force at a song position: the bar's own split if it has one, else the main split
+    function barNumAt(tick, song = state.song) {
+      return Math.floor(tick / song.ticksPerMeasure + 1e-6) + 1;
+    }
+    // Index of the last "new split" at or before a tick (-1 = none, the main split is in force)
+    function splitChangeIndexAt(tick) {
+      const a = state.splitChanges;
+      let lo = 0, hi = a.length - 1, r = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (a[mid].tick <= tick + 0.5) { r = mid; lo = mid + 1; } else hi = mid - 1;
+      }
+      return r;
+    }
+    function splitAtTick(tick, song = state.song) {
+      const bv = FEATURE_BAR_SPLIT ? state.barSplits[barNumAt(tick, song)] : undefined;
+      if (bv !== undefined) return bv;
+      const i = splitChangeIndexAt(tick);
+      return i >= 0 ? state.splitChanges[i].pitch : state.settings.handSplit;
+    }
+
+    // The note a "new split" starts at: the note being practised (Learn) or the next note to be played (Play)
+    function splitAnchorTick() {
+      const song = state.song;
+      if (state.mode === 'learn') {
+        const st = state.learnSteps[state.currentStepIndex];
+        if (st) return st.tick;
+      }
+      const from = state.currentTick - song.ticksPerQuarter / 16;
+      const n = song.notes.find(x => x.startTick >= from);
+      return n ? n.startTick : state.currentTick;
+    }
+
     function noteName(p) {
       const names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
       return names[p % 12] + (Math.floor(p / 12) - 1);
@@ -1380,7 +1509,7 @@
         reason = !s.handsFromTracks ? 'off' : (voices.length < 2 ? 'single' : 'unclear');
       }
 
-      const byPitch = (n) => (n.pitch >= s.handSplit ? 'right' : 'left');
+      const byPitch = (n) => (n.pitch >= splitAtTick(n.startTick, song) ? 'right' : 'left');
       for (const n of song.notes) {
         let h = map ? map.get(n.track + ':' + n.channel) : undefined;
         if (h === undefined || h === 'both') h = byPitch(n);
@@ -1405,11 +1534,146 @@
       if (value) select.value = value;
     }
 
+    // Slider + button follow the bar under the playhead
+    let lastSplitKey = '';
+    let splitDragging = false;
+    let splitUsable = false;   // false when the hands come from separate MIDI tracks (the split is not used)
+
+    // The new split the playhead is on (or very close to), or -1
+    function nearSplitIndex() {
+      const a = state.splitChanges;
+      if (!a.length || !state.song) return -1;
+      const anchor = splitAnchorTick();
+      const tol = state.song.ticksPerQuarter / 2;
+      let best = -1, bestD = Infinity;
+      a.forEach((c, i) => {
+        // "On top of it": exactly the note being targeted, or the playhead is clearly closer to this split than to any note
+        const dSplit = Math.abs(c.tick - state.currentTick);
+        const d = c.tick === anchor ? 0 : ((dSplit <= tol && dSplit < Math.abs(anchor - state.currentTick)) ? dSplit : Infinity);
+        if (d < bestD) { best = i; bestD = d; }
+      });
+      return best;
+    }
+
+    function editingIndex() {
+      return state.splitEdit ? state.splitChanges.findIndex(c => c.tick === state.splitEdit.tick) : -1;
+    }
+
+    function lockSplitEdit() {
+      if (state.splitEdit) { state.splitEdit = null; lastSplitKey = ''; }
+    }
+
+    function updateSplitUI(force) {
+      if (!state.song || splitDragging) return;
+      // Editing ends as soon as the song plays or the playhead moves
+      if (state.splitEdit && (state.isPlaying || state.isDragging || Math.abs(state.currentTick - state.splitEdit.playTick) > 0.5 || editingIndex() < 0)) {
+        state.splitEdit = null;
+        force = true;
+      }
+      const anchor = splitAnchorTick();
+      const ei = editingIndex();
+      const ni = nearSplitIndex();
+      const ci = splitChangeIndexAt(anchor);
+      const nAll = state.splitChanges.length + Object.keys(state.barSplits).length;
+      const barOv0 = FEATURE_BAR_SPLIT ? state.barSplits[barNumAt(state.currentTick)] : undefined;   // (parked feature)
+      const v = ei >= 0 ? state.splitChanges[ei].pitch
+        : (barOv0 !== undefined ? barOv0 : (ci >= 0 ? state.splitChanges[ci].pitch : state.settings.handSplit));
+      // The slider is live only for the split just created / chosen to be edited, or for the main split before the first new split
+      const canEdit = splitUsable && (ei >= 0 || barOv0 !== undefined || ci < 0);
+      const key = [anchor, ci, ei, ni, v, state.settings.handSplit, nAll, canEdit, barOv0].join(':');
+      if (!force && key === lastSplitKey) return;
+      lastSplitKey = key;
+      setSplitEl.value = v;
+      setSplitEl.disabled = !canEdit;
+      splitValueEl.textContent = noteName(v);
+
+      let label = 'New split', title = 'From this note on, use a new split', cls = 'bg-[#F2ECE0] border-[#D6CBB8] text-stone-700 hover:bg-white';
+      if (ei >= 0) {
+        label = '\u25CF Done';
+        title = 'You are editing this split with the slider. Tap when finished (it also locks when you press play or move the playhead).';
+        cls = 'bg-red-700 border-red-700 text-white hover:bg-red-800';
+      } else if (ni >= 0) {
+        label = '\u25CF Split here';
+        title = 'A new split starts here. Tap to edit or remove it.';
+        cls = 'bg-white border-red-700 text-red-700 hover:bg-red-50';
+      } else if (ci >= 0) {
+        title = 'The slider is locked here (a new split is in force). Tap to start another new split from this note.';
+      }
+      newSplitBtn.textContent = label;
+      newSplitBtn.title = title;
+      newSplitBtn.className = 'px-2.5 py-1.5 rounded-md border text-xs font-medium transition disabled:opacity-40 ' + cls;
+      setSplitEl.title = canEdit ? '' : 'Locked: tap "New split" for a new one, or tap the red marker / button on an existing one to edit it';
+
+      // parked per-bar split button
+      const bar = barNumAt(state.currentTick);
+      const barOv = state.barSplits[bar];
+      barSplitBtn.classList.toggle('hidden', !FEATURE_BAR_SPLIT);
+      barSplitBtn.textContent = barOv !== undefined ? `\u25CF Bar ${bar}` : 'Bar split';
+      barSplitBtn.className = (FEATURE_BAR_SPLIT ? '' : 'hidden ') + 'px-2.5 py-1.5 rounded-md border text-xs font-medium transition disabled:opacity-40 ' +
+        (barOv !== undefined ? 'bg-red-700 border-red-700 text-white hover:bg-red-800' : 'bg-[#F2ECE0] border-[#D6CBB8] text-stone-700 hover:bg-white');
+
+      resetBarSplitsBtn.disabled = nAll === 0;
+      resetBarSplitsBtn.textContent = nAll ? `Reset all new splits (${nAll})` : 'Reset all new splits';
+    }
+
+    // Tap on the red marker or the red button: edit or remove that split
+    async function openSplitDialog(idx) {
+      const c = state.splitChanges[idx];
+      if (!c) return;
+      const r = await askChoice(`New split at bar ${barNumAt(c.tick)} (${noteName(c.pitch)}). Do you want to edit it?`, 'Edit', { altLabel: 'Remove', cancelLabel: 'Cancel', okDanger: false });
+      const cur = state.splitChanges.findIndex(x => x.tick === c.tick);
+      if (cur < 0) return;
+      if (r === 'ok') {
+        state.splitEdit = { tick: c.tick, playTick: state.currentTick };
+        lastSplitKey = '';
+        updateSplitUI(true);
+        showToast('Editing this split: move the slider');
+      } else if (r === 'alt') {
+        state.splitChanges.splice(cur, 1);
+        lockSplitEdit();
+        refreshHands();
+        showToast('New split removed');
+      }
+    }
+
+    // Small choice window. Resolves 'ok', 'alt' or 'cancel'.
+    //   okDanger: the main button is red (remove); otherwise it is the dark primary button.
+    function askChoice(text, okLabel, opts = {}) {
+      const { altLabel = null, cancelLabel = 'Keep', okDanger = true } = opts;
+      return new Promise((resolve) => {
+        confirmText.textContent = text;
+        confirmOk.textContent = okLabel;
+        confirmOk.className = 'px-3 py-2 rounded-lg text-white text-xs font-medium ' + (okDanger ? 'bg-red-700 hover:bg-red-800' : 'bg-stone-900 hover:bg-stone-800');
+        confirmCancel.textContent = cancelLabel;
+        confirmAlt.textContent = altLabel || '';
+        confirmAlt.classList.toggle('hidden', !altLabel);
+        confirmModal.classList.remove('hidden');
+        const done = (v) => {
+          confirmModal.classList.add('hidden');
+          confirmOk.removeEventListener('click', onOk);
+          confirmAlt.removeEventListener('click', onAlt);
+          confirmCancel.removeEventListener('click', onCancel);
+          confirmModal.removeEventListener('click', onBackdrop);
+          resolve(v);
+        };
+        const onOk = () => done('ok');
+        const onAlt = () => done('alt');
+        const onCancel = () => done('cancel');
+        const onBackdrop = (e) => { if (e.target === confirmModal) done('cancel'); };
+        confirmOk.addEventListener('click', onOk);
+        confirmAlt.addEventListener('click', onAlt);
+        confirmCancel.addEventListener('click', onCancel);
+        confirmModal.addEventListener('click', onBackdrop);
+      });
+    }
+    function askConfirm(text, okLabel) {
+      return askChoice(text, okLabel).then(r => r === 'ok');
+    }
+
     function updateHandSettingsUI() {
       const s = state.settings;
       setHandsTracksEl.checked = !!s.handsFromTracks;
-      setSplitEl.value = s.handSplit;
-      splitValueEl.textContent = pitchLabel(s.handSplit);
+      updateSplitUI(true);
 
       const song = state.song;
       const info = song && song.handInfo;
@@ -1422,16 +1686,19 @@
       } else if (info.mode === 'tracks-manual') {
         text = 'Using the parts you picked below.';
       } else if (info.reason === 'off') {
-        text = 'Off: the split point below is used.';
+        text = 'Off: the split point in the top bar is used.';
       } else if (info.reason === 'single') {
-        text = 'This file has all notes in a single track, so the split point below is used.';
+        text = 'This file has all notes in a single track, so the split point in the top bar is used.';
       } else {
         text = 'Auto-detect could not tell the hands apart: the split point is in use. You can pick the parts below.';
       }
       handsInfoEl.textContent = text;
 
       const splitActive = !info || info.usesSplit;
-      setSplitEl.disabled = !splitActive;
+      barSplitBtn.disabled = !splitActive || !song;
+      newSplitBtn.disabled = !splitActive || !song;
+      splitUsable = splitActive && !!song;
+      updateSplitUI(true);
       splitRowEl.style.opacity = splitActive ? '' : '0.45';
 
       // Manual part -> hand mapping (only when the file has 2+ parts)
@@ -1980,10 +2247,11 @@
       if (save) saveSongPrefs();
     }
 
-    // - / + : move the loop start by one loop length (e.g. bars 1-4 -> bars 5-8)
+    // - / + : move the loop start by one bar
     function stepLoopStart(dir) {
       if (!getActiveLoop()) return;
-      setLoopStartBar(loopStartBar() + dir * state.loopBars);
+      resetLoopCounter();
+      setLoopStartBar(loopStartBar() + dir);
       showToast(describeLoop());
     }
 
@@ -2017,7 +2285,7 @@
       loopStartLabel.textContent = `Bar ${startBar}`;
       loopStartLabel.title = describeLoop();
       loopStartDec.disabled = startBar <= 1;
-      loopStartInc.disabled = startBar + state.loopBars > totalBars();
+      loopStartInc.disabled = startBar >= totalBars();
     }
 
     // ---- Transport
@@ -2030,6 +2298,7 @@
           resetToStart();
         }
         ensureLoopCoversPlayhead();
+        if (state.settings.advancedTraining && getActiveLoop() && state.loopRep >= state.settings.repTarget) state.loopRep = 0;
         state.isPlaying = true;
         state.lastFrameTime = performance.now();
 
@@ -2106,6 +2375,86 @@
       return d;
     }
 
+    // Timing error (real ms) of the step that is being completed right now: + late, - early.
+    // When Learn mode stopped to wait for you, the playhead is parked on the note, so the waiting time is added.
+    function learnErrorMs(step) {
+      if (state.waitingForUser) {
+        return state.settings.toleranceMs + Math.max(0, performance.now() - state.waitStartMs);
+      }
+      return learnDeltaMs(step);
+    }
+
+    // ---- Advanced training: accuracy
+    function accScore(errMs) {
+      const gate = state.settings.accGateMs;
+      const zero = Math.max(gate + 10, state.settings.accZeroMs);
+      const e = Math.abs(errMs);
+      if (e <= gate) return 1;
+      if (e >= zero) return 0;
+      return 1 - (e - gate) / (zero - gate);   // straight line from 100% down to 0%
+    }
+    function recordAccuracy(score) {
+      const a = state.acc;
+      a.recent.push(score);
+      if (a.recent.length > 200) a.recent.shift();
+      a.sum += score;
+      a.n++;
+      updateAdvancedUI();
+    }
+    function rollingAccuracy() {
+      const r = state.acc.recent.slice(-state.settings.accRollN);
+      return r.length ? r.reduce((s, x) => s + x, 0) / r.length : null;
+    }
+    function totalAccuracy() {
+      return state.acc.n ? state.acc.sum / state.acc.n : null;
+    }
+    function resetAccuracy() {
+      state.acc = { recent: [], sum: 0, n: 0 };
+      updateAdvancedUI();
+    }
+    function resetLoopCounter() {
+      state.loopRep = 0;
+      updateAdvancedUI();
+    }
+
+    // A loop pass is finished. Returns true when the chosen number of loops is reached and playback stopped.
+    function onLoopPassComplete() {
+      state.loopRep++;
+      updateAdvancedUI();
+      if (state.settings.advancedTraining && state.loopRep >= state.settings.repTarget) {
+        const loop = getActiveLoop();
+        setPlaying(false);
+        if (loop) {
+          state.currentTick = loop.start;
+          state.waitingForUser = false;
+          if (state.mode === 'learn') syncLearnStepToCurrentTick();
+          alignMetronome();
+        }
+        const t = totalAccuracy();
+        showToast(`Done: ${state.loopRep} loops` + (t !== null ? ` · accuracy ${Math.round(t * 100)}%` : ''));
+        return true;
+      }
+      return false;
+    }
+
+    function fmtPct(x) { return x === null ? '\u2013' : Math.round(x * 100) + '%'; }
+    function pctColor(x) { return x === null ? '#78716C' : (x >= 0.9 ? '#15803D' : (x >= 0.7 ? '#B45309' : '#B91C1C')); }
+    function updateAdvancedUI() {
+      const on = !!state.settings.advancedTraining;
+      advancedBar.classList.toggle('hidden', !on);
+      advancedParamsEl.classList.toggle('hidden', !on);
+      if (!on) return;
+      const rolling = rollingAccuracy(), total = totalAccuracy();
+      accRollingEl.textContent = fmtPct(rolling);
+      accRollingEl.style.color = pctColor(rolling);
+      accTotalEl.textContent = fmtPct(total);
+      accTotalEl.style.color = pctColor(total);
+      accRollNEl.textContent = state.settings.accRollN;
+      loopRepGroup.classList.toggle('hidden', !(state.loopBars > 0));
+      loopRepCountEl.textContent = state.loopRep;
+      repTargetValEl.textContent = state.settings.repTarget;
+    }
+
     function registerLearnPress(pitch) {
       const step = state.learnSteps[state.currentStepIndex];
       if (!step) return;
@@ -2129,13 +2478,14 @@
 
       for (const reqPitch of step.requiredPitches) state.matchedHeld.add(reqPitch);
       state.learnStats.hit++;
+      recordAccuracy(accScore(learnErrorMs(step)));
       advanceStep(true);
     }
 
     // Move on to the next step after it was played (matched) or, with wait mode off, let go (missed).
     // Returns true when the piece is over and playback was stopped.
     function advanceStep(matched) {
-      if (!matched) state.learnStats.missed++;
+      if (!matched) { state.learnStats.missed++; recordAccuracy(0); }
       state.currentStepIndex++;
       state.waitingForUser = false;
       state.stepFreshPresses.clear();
@@ -2221,6 +2571,7 @@
           const wrapped = loop.start + ((rawNext - loop.end) % loopLen);
           triggerNotesBetween(loop.start, wrapped);
           state.currentTick = wrapped;
+          if (onLoopPassComplete()) return;
           const ctw = getClickTicks();
           const regrid = Math.ceil((wrapped - 0.001) / ctw) * ctw;
           // clicks for the next pass were already scheduled ahead of the wrap: just move the grid back by one pass
@@ -2266,6 +2617,7 @@
               const ct = getClickTicks();
               state.nextBeatTick = Math.ceil((loop.start - 0.001) / ct) * ct; // click grid restarts with the loop
               step = state.learnSteps[state.currentStepIndex];
+              if (onLoopPassComplete()) return;
             }
           }
 
@@ -2281,6 +2633,7 @@
               // Wait mode: halt exactly on the missed note and wait for the right key(s)
               state.currentTick = refTick;
               state.waitingForUser = true;
+              state.waitStartMs = performance.now();
               state.stepFreshPresses.clear();
               break;
             }
@@ -2519,6 +2872,40 @@
         } else {
           ctx.fillText(String(m + 1), mx + 5, trebleTopY - 6);
         }
+        if (state.barSplits[m + 1] !== undefined) {   // red dot: this bar has its own hand split
+          ctx.fillStyle = '#DC2626';
+          ctx.beginPath();
+          ctx.arc(mx, trebleTopY - 12, 3.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#78716C';
+        }
+      }
+
+      // New splits: a red marker (and a faint line) where a different hand split starts
+      state.splitMarkers = [];
+      for (const c of state.splitChanges) {
+        const sx = scrollOffsetX + c.tick * pxPerTick - 9;
+        if (sx < clefHeaderWidth - 10 || sx > width + 20) continue;
+        ctx.strokeStyle = 'rgba(220,38,38,0.45)';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath();
+        ctx.moveTo(sx, trebleTopY - 6);
+        ctx.lineTo(sx, bassBottomY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#DC2626';
+        ctx.beginPath();
+        ctx.arc(sx, trebleTopY - 12, 4, 0, Math.PI * 2);
+        ctx.fill();
+        if (state.splitEdit && state.splitEdit.tick === c.tick) {   // the one that can be edited right now
+          ctx.strokeStyle = '#DC2626';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(sx, trebleTopY - 12, 8, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        state.splitMarkers.push({ x: sx, y: trebleTopY - 12, tick: c.tick });
       }
 
       // 4. Identify Active Target Step in Learning Mode
@@ -2706,7 +3093,7 @@
         for (const pitch of state.userHeldPitches) {
           const isTarget = (activeLearnStep && activeLearnStep.requiredPitches.has(pitch)) || state.matchedHeld.has(pitch);
           const info = pitchToDiatonic(pitch, useFlats);
-          const isTreble = pitch >= state.settings.handSplit;
+          const isTreble = pitch >= splitAtTick(state.currentTick);
           const ny = getNoteY(info.diatonicStep, isTreble);
 
           drawLedgerLines(ctx, playheadScreenX, info.diatonicStep, isTreble, trebleTopY, trebleBottomY, bassTopY, bassBottomY, halfStep, rx);
@@ -2896,6 +3283,7 @@
     const KB_YELLOW = '#FACC15';
     const KB_GREEN = '#22C55E';
     const KB_RED = '#EF4444';
+    const KB_BLUE = '#3B82F6';   // next expected key, right hand (yellow = left hand)
 
     function isBlackKey(p) {
       const m = p % 12;
@@ -2936,6 +3324,22 @@
       return out;
     }
 
+    // Which hand each expected key belongs to
+    function getExpectedHands() {
+      const m = new Map();
+      if (!state.song) return m;
+      const add = (n) => { if (n.hand && !m.has(n.pitch)) m.set(n.pitch, n.hand); };
+      if (state.mode === 'learn') {
+        const step = state.learnSteps[state.currentStepIndex];
+        if (step) step.notes.forEach(add);
+      } else if (state.isPlaying) {
+        for (const n of state.song.notes) {
+          if (state.currentTick >= n.startTick && state.currentTick <= n.endTick) add(n);
+        }
+      }
+      return m;
+    }
+
     function kbPath(c, x, y, w, h, r) {
       c.beginPath();
       c.moveTo(x, y);
@@ -2969,13 +3373,14 @@
       const keyH = h - 8;
 
       const expected = getExpectedPitches();
+      const expHand = getExpectedHands();
       const held = state.userHeldPitches;
 
       function keyColor(p, black) {
         if (held.has(p)) {
           return (expected.has(p) || state.matchedHeld.has(p)) ? KB_GREEN : KB_RED;
         }
-        if (expected.has(p)) return KB_YELLOW;
+        if (expected.has(p)) return expHand.get(p) === 'right' ? KB_BLUE : KB_YELLOW;
         return black ? '#2A2522' : '#FFFDF8';
       }
 
@@ -3248,6 +3653,8 @@
       if (state.loopBars > 0) setLoopStartBar(prefs.loopStartBar, { save: false });
       else updateLoopUI();
       state.restoringPrefs = false;
+      resetLoopCounter();
+      resetAccuracy();
       renderLibrary();
       if (!silent) showToast(`Loaded: ${parsed.title}`);
     }
@@ -3278,7 +3685,9 @@
     const DEFAULT_SONG_PREFS = {
       handsFromTracks: true, handSplit: 60, hand: 'both',
       leftVoice: null, rightVoice: null,
-      loopBars: 0, loopStartBar: 1, speed: 100
+      loopBars: 0, loopStartBar: 1, speed: 100,
+      barSplits: {},
+      splitChanges: []
     };
 
     // First run of this version: the old global hand settings become the first song's preferences
@@ -3327,6 +3736,23 @@
       out.loopBars = Math.max(0, Math.min(16, Math.round(Number(out.loopBars)) || 0));
       out.loopStartBar = Math.max(1, Math.round(Number(out.loopStartBar)) || 1);
       out.speed = Math.max(50, Math.min(100, Math.round((Number(out.speed) || 100) / 5) * 5));
+      const bs = {};
+      if (out.barSplits && typeof out.barSplits === 'object') {
+        for (const [k, v] of Object.entries(out.barSplits)) {
+          const b = parseInt(k, 10), pv = Math.round(Number(v));
+          if (b >= 1 && b <= 100000 && Number.isFinite(pv)) bs[b] = Math.max(48, Math.min(72, pv));
+        }
+      }
+      out.barSplits = bs;
+      const sc = [];
+      if (Array.isArray(out.splitChanges)) {
+        for (const c of out.splitChanges.slice(0, 2000)) {
+          const t = Number(c && c.tick), pv = Math.round(Number(c && c.pitch));
+          if (Number.isFinite(t) && t >= 0 && Number.isFinite(pv)) sc.push({ tick: Math.round(t), pitch: Math.max(48, Math.min(72, pv)) });
+        }
+      }
+      sc.sort((a, b) => a.tick - b.tick);
+      out.splitChanges = sc;
       return out;
     }
 
@@ -3343,6 +3769,8 @@
         loopBars: state.loopBars,
         loopStartBar: state.loopBars > 0 ? loopStartBar() : 1,
         speed: Math.round(state.speed * 100),
+        barSplits: { ...state.barSplits },
+        splitChanges: state.splitChanges.map(c => ({ tick: c.tick, pitch: c.pitch })),
         t: Date.now()
       };
       writeAllSongPrefs(all);
@@ -3352,6 +3780,9 @@
       const s = state.settings;
       s.handsFromTracks = p.handsFromTracks;
       s.handSplit = p.handSplit;
+      state.barSplits = { ...p.barSplits };
+      state.splitEdit = null;
+      state.splitChanges = p.splitChanges.map(c => ({ ...c }));
       s.hand = p.hand;
       state.voiceOverride = (p.leftVoice && p.rightVoice) ? { left: p.leftVoice, right: p.rightVoice } : null;
       state.loopBars = p.loopBars;
@@ -3394,11 +3825,50 @@
     // --------------------------------------------------------------------------
     // 7c-3. VERSION & CHANGELOG
     // --------------------------------------------------------------------------
-    const APP_VERSION = '7.2';
+    const APP_VERSION = '7.6';
     const APP_RELEASE_DATE = '2026-11-16';
     appVersionBadge.textContent = 'v' + APP_VERSION;
     // approx: true = date reconstructed afterwards
     const CHANGELOG = [
+      {
+        version: '7.6', date: '2026-11-17',
+        features: [
+          'Advanced training (Settings): shows a bar under the top bar with a loop counter (set how many loops, e.g. 10 or 25; playback stops when reached) and your accuracy in Learn mode: rolling average of the last notes, and the total.',
+          'Accuracy settings: the timing window that counts as 100%, where it falls to 0%, and the rolling length.'
+        ],
+        fixes: []
+      },
+      {
+        version: '7.5', date: '2026-11-17',
+        features: [
+          'New split is only editable right after you create it. It locks as soon as you press play or move the playhead.',
+          'To edit one again, tap its red marker on the sheet or the red "Split here" button when the playhead is on it, then choose Edit (or Remove).',
+          'Before the first new split the slider edits the main split; after it, the slider is greyed out.'
+        ],
+        fixes: [
+          'The slider could change an earlier new split by mistake; it now only edits the split you are working on.'
+        ]
+      },
+      {
+        version: '7.4', date: '2026-11-17',
+        features: [
+          'New split: from the current note on, use a new hand split (red marker on the sheet). As many as you like, down to a single note; the slider changes the one in force at the playhead. Tap the red button to remove it. Saved per song; "Reset all new splits" in Settings.'
+        ],
+        fixes: [],
+        // the per-bar split from 7.3 is parked: code kept, button hidden
+      },
+      {
+        version: '7.3', date: '2026-11-17',
+        features: [
+          'Keyboard colours: the next expected key is yellow for the left hand and blue for the right hand.',
+          'The key split slider moved from Settings to the top bar.',
+          'Bar split (replaced in 7.4 by "New split"): a separate split point for one bar.'
+        ],
+        fixes: [
+          'Settings now always opens in the middle of the screen (it was cut off when its button was at the left edge).',
+          'The loop start − / + buttons move by one bar, whatever the loop length.'
+        ]
+      },
       {
         version: '7.2', date: '2026-11-16',
         features: [
@@ -3578,6 +4048,7 @@
       setMidiClickEl.value = state.settings.midiClickMode;
       setWaitModeEl.checked = !!state.settings.waitMode;
       setKeepAwakeEl.checked = !!state.settings.keepAwake;
+      syncAdvancedInputs();
       updateToleranceHint();
       setSubdivEl.value = String(state.settings.clickSubdiv);
       setClickSoundEl.value = state.settings.clickSound;
@@ -3622,6 +4093,7 @@
 
     loopSelect.addEventListener('change', () => {
       state.loopBars = parseInt(loopSelect.value, 10) || 0;
+      resetLoopCounter();
       anchorLoop();
       if (state.mode === 'learn' && state.song) syncLearnStepToCurrentTick();
       alignMetronome();
@@ -3649,10 +4121,69 @@
       refreshHands();
     });
     setSplitEl.addEventListener('input', () => {
-      state.settings.handSplit = parseInt(setSplitEl.value, 10) || 60;
-      splitValueEl.textContent = pitchLabel(state.settings.handSplit);
-      saveSettings();
+      const v = parseInt(setSplitEl.value, 10) || 60;
+      const ei = editingIndex();
+      if (ei >= 0) {
+        state.splitChanges[ei].pitch = v;   // the split being edited
+      } else if (FEATURE_BAR_SPLIT && state.barSplits[barNumAt(state.currentTick)] !== undefined) {
+        state.barSplits[barNumAt(state.currentTick)] = v;   // (parked)
+      } else if (splitChangeIndexAt(splitAnchorTick()) >= 0) {
+        updateSplitUI(true);                // locked: a new split is in force here, never touch it by accident
+        return;
+      } else {
+        state.settings.handSplit = v;       // before the first new split: the main split
+        saveSettings();
+      }
+      splitValueEl.textContent = noteName(v);
       refreshHands();
+    });
+    ['pointerdown', 'touchstart'].forEach(n => setSplitEl.addEventListener(n, () => { splitDragging = true; }, { passive: true }));
+    ['pointerup', 'pointercancel', 'touchend', 'change'].forEach(n => setSplitEl.addEventListener(n, () => { splitDragging = false; updateSplitUI(true); }));
+
+    newSplitBtn.addEventListener('click', async () => {
+      if (!state.song) return;
+      if (editingIndex() >= 0) {            // "Done"
+        lockSplitEdit();
+        updateSplitUI(true);
+        return;
+      }
+      const ni = nearSplitIndex();
+      if (ni >= 0) { openSplitDialog(ni); return; }
+      const tick = splitAnchorTick();
+      state.splitChanges.push({ tick, pitch: splitAtTick(tick) });
+      state.splitChanges.sort((a, b) => a.tick - b.tick);
+      state.splitEdit = { tick, playTick: state.currentTick };   // editable until you press play or move the playhead
+      refreshHands();
+      showToast(`New split from bar ${barNumAt(tick)}: move the slider`);
+    });
+
+    barSplitBtn.addEventListener('click', async () => {
+      if (!state.song) return;
+      const bar = barNumAt(state.currentTick);
+      if (state.barSplits[bar] === undefined) {
+        state.barSplits[bar] = state.settings.handSplit;
+        refreshHands();
+        showToast(`Bar ${bar} now has its own split: move the slider`);
+      } else {
+        const ok = await askConfirm(`Bar ${bar} has its own split (${noteName(state.barSplits[bar])}). Remove it and use the main split again?`, 'Remove');
+        if (ok) {
+          delete state.barSplits[bar];
+          refreshHands();
+          showToast(`Bar ${bar} split removed`);
+        }
+      }
+    });
+    resetBarSplitsBtn.addEventListener('click', async () => {
+      const n = Object.keys(state.barSplits).length + state.splitChanges.length;
+      if (!n) { showToast('This song has no new splits'); return; }
+      const ok = await askConfirm(`Remove all ${n} new split${n === 1 ? '' : 's'} of this song? The main split stays.`, 'Remove all');
+      if (ok) {
+        state.barSplits = {};
+        state.splitChanges = [];
+        lockSplitEdit();
+        refreshHands();
+        showToast('All new splits removed');
+      }
     });
 
     handSelect.addEventListener('change', () => {
@@ -3696,6 +4227,40 @@
       saveSettings();
       if (state.settings.keepAwake) requestWakeLock(); else releaseWakeLock();
     });
+    // ---- Advanced training controls
+    function syncAdvancedInputs() {
+      setAdvancedEl.checked = !!state.settings.advancedTraining;
+      setAccGateEl.value = state.settings.accGateMs;
+      setAccZeroEl.value = state.settings.accZeroMs;
+      setAccRollEl.value = state.settings.accRollN;
+      updateAdvancedUI();
+    }
+    setAdvancedEl.addEventListener('change', () => {
+      state.settings.advancedTraining = setAdvancedEl.checked;
+      saveSettings();
+      updateAdvancedUI();
+    });
+    function readAccParams() {
+      const num = (el, lo, hi, d) => { const v = Math.round(Number(el.value)); return Number.isFinite(v) && el.value !== '' ? Math.max(lo, Math.min(hi, v)) : d; };
+      const s = state.settings;
+      s.accGateMs = num(setAccGateEl, 20, 1000, s.accGateMs);
+      s.accZeroMs = num(setAccZeroEl, 50, 3000, s.accZeroMs);
+      if (s.accZeroMs < s.accGateMs + 10) s.accZeroMs = s.accGateMs + 10;
+      s.accRollN = num(setAccRollEl, 3, 100, s.accRollN);
+      syncAdvancedInputs();
+      saveSettings();
+    }
+    [setAccGateEl, setAccZeroEl, setAccRollEl].forEach(el => el.addEventListener('change', readAccParams));
+    function setRepTarget(n) {
+      state.settings.repTarget = Math.max(1, Math.min(999, n));
+      saveSettings();
+      updateAdvancedUI();
+    }
+    document.getElementById('repTargetDec').addEventListener('click', () => setRepTarget(state.settings.repTarget - (state.settings.repTarget > 20 ? 5 : 1)));
+    document.getElementById('repTargetInc').addEventListener('click', () => setRepTarget(state.settings.repTarget + (state.settings.repTarget >= 20 ? 5 : 1)));
+    document.getElementById('repReset').addEventListener('click', () => { resetLoopCounter(); showToast('Loop count reset'); });
+    document.getElementById('accReset').addEventListener('click', () => { resetAccuracy(); showToast('Accuracy reset'); });
+
     midiReconnectBtn.addEventListener('click', () => {
       midiAutoReacquires = 0;
       releaseAllUserKeys();
@@ -3772,7 +4337,12 @@
         e.stopPropagation();
         const willOpen = entry.pop.classList.contains('hidden');
         popovers.forEach(p => p.pop.classList.add('hidden'));
-        if (willOpen) entry.pop.classList.remove('hidden');
+        if (willOpen) {
+          entry.pop.classList.remove('hidden');
+          if (entry.pop === settingsPopover) {   // centred, just below the top bar, wherever the button is
+            entry.pop.style.top = (document.querySelector('header').getBoundingClientRect().bottom + 8) + 'px';
+          }
+        }
         if (entry.btn === midiPortBtn && !state.midiAccess) {
           initWebMIDI();
         }
@@ -3807,6 +4377,7 @@
     // Touch & Mouse Horizontal Scrubbing on Sheet Music Canvas
     function beginScrub(clientX) {
       if (!state.song) return;
+      state.dragMoved = false;
       state.isDragging = true;
       state.dragStartX = clientX;
       state.dragStartTick = state.currentTick;
@@ -3818,6 +4389,7 @@
     function moveScrub(clientX) {
       if (!state.isDragging || !state.song) return;
       const dx = clientX - state.dragStartX;
+      if (Math.abs(dx) > 6) state.dragMoved = true;
       const pxPerTick = state.pxPerQuarter / state.song.ticksPerQuarter;
       const newTick = Math.max(0, Math.min(state.song.totalTicks, state.dragStartTick - dx / pxPerTick));
       state.currentTick = newTick;
@@ -3838,6 +4410,16 @@
       saveSongPrefs();
     }
 
+    canvas.addEventListener('click', (e) => {
+      if (state.dragMoved || !state.splitMarkers || !state.splitMarkers.length) return;
+      const r = canvas.getBoundingClientRect();
+      const x = e.clientX - r.left, y = e.clientY - r.top;
+      const hit = state.splitMarkers.find(m => Math.hypot(m.x - x, m.y - y) <= 18);
+      if (hit) {
+        const idx = state.splitChanges.findIndex(c => c.tick === hit.tick);
+        if (idx >= 0) openSplitDialog(idx);
+      }
+    });
     canvas.addEventListener('mousedown', (e) => beginScrub(e.clientX));
     window.addEventListener('mousemove', (e) => moveScrub(e.clientX));
     window.addEventListener('mouseup', endScrub);
@@ -3882,6 +4464,7 @@
     // --------------------------------------------------------------------------
     function mainLoop(now) {
       updateTempoReadout();
+      updateSplitUI(false);
       sampleAudioClock();   // keep the audio/performance clock offset converged before playback starts
       updateSimulation(now);
       renderSheetMusic();
