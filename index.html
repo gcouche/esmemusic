@@ -311,13 +311,28 @@
             <p id="tolHint" class="mt-1 text-[11px] leading-relaxed text-stone-500"></p>
           </div>
 
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-stone-800">Look-ahead</span>
+              <span id="lookAheadValue" class="font-semibold text-stone-800 tabular-nums">1000 ms</span>
+            </div>
+            <input id="setLookAhead" type="range" min="500" max="2000" step="100" value="1000" class="w-full mt-2 accent-emerald-800" />
+            <p class="mt-1 text-[11px] leading-relaxed text-stone-500">How long before its time the next key (or chord) lights up on the keyboard in Learn mode. It also shows over a key that is still sounding. Only the next note is ever shown, never the one after.</p>
+          </div>
+
           <hr class="border-[#DFD6C5]" />
           <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Left / right hand</p>
 
           <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
-            <span class="text-stone-800">Use MIDI tracks as hands</span>
+            <span class="text-stone-800">Use the key split</span>
+            <input id="setUseSplit" type="checkbox" class="w-5 h-5 accent-emerald-800" />
+          </label>
+          <p class="text-[11px] leading-relaxed text-stone-500">The hands follow the split slider in the top bar (and its new splits). This works for any file, also when it has two channels: they are then treated as one.</p>
+          <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+            <span class="text-stone-800">Read hands from MIDI channels</span>
             <input id="setHandsTracks" type="checkbox" class="w-5 h-5 accent-emerald-800" />
           </label>
+          <p class="text-[11px] leading-relaxed text-stone-500">Takes the left and right hand from separate tracks / channels of the file. Used when the key split is off.</p>
           <p id="handsInfo" class="text-[11px] leading-relaxed text-stone-500"></p>
 
           <div id="trackMapRows" class="hidden space-y-2">
@@ -353,6 +368,16 @@
             <input id="setKeepAwake" type="checkbox" class="w-5 h-5 accent-emerald-800" />
           </label>
           <p class="text-[11px] leading-relaxed text-stone-500">Stops the tablet from locking while you play, which can cut the USB MIDI connection.</p>
+
+          <hr class="border-[#DFD6C5]" />
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Export / import (beta)</p>
+          <div class="grid grid-cols-1 gap-2">
+            <button id="exportMidiBtn" type="button" class="px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Export MIDI: left + right hand</button>
+            <button id="exportSplitsBtn" type="button" class="px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Export splits (file)</button>
+            <button id="importSplitsBtn" type="button" class="px-3 py-2 rounded-lg bg-stone-900 text-[#F9F5EB] hover:bg-stone-800 active:scale-[0.99] transition text-xs font-medium">Load splits (file)</button>
+            <input id="splitsFileInput" type="file" accept=".json,application/json" class="hidden" />
+          </div>
+          <p class="text-[11px] leading-relaxed text-stone-500">The MIDI export has two tracks: left hand on channel 1, right hand on channel 2, following the splits in force. Parts you left out are not exported. The splits file remembers which MIDI file it belongs to; loading it into another file asks first.</p>
 
           <hr class="border-[#DFD6C5]" />
           <p class="text-[11px] font-semibold uppercase tracking-wider text-stone-500">Advanced training</p>
@@ -422,6 +447,8 @@
       <span id="accRolling" class="font-semibold tabular-nums text-base min-w-[3rem] text-center">&ndash;</span>
       <span class="text-stone-500">total</span>
       <span id="accTotal" class="font-semibold tabular-nums text-base min-w-[3rem] text-center">&ndash;</span>
+      <span class="text-stone-500" title="Keys you did not play in time (missed), since the last reset">missed</span>
+      <span id="accMissed" class="font-semibold tabular-nums text-base min-w-[1.5rem] text-center">0</span>
       <button id="accReset" type="button" title="Reset the accuracy" aria-label="Reset accuracy" class="w-7 h-7 rounded-md bg-[#FAF7F0] border border-[#D6CBB8] leading-none hover:bg-white active:bg-stone-200">&#8634;</button>
     </div>
   </div>
@@ -530,7 +557,7 @@
 
       // Learn mode score for the current run
       learnStats: { hit: 0, missed: 0 },
-      acc: { recent: [], sum: 0, n: 0 },   // accuracy of the notes played (Learn mode), 0..1 each
+      acc: { recent: [], sum: 0, n: 0, keys: 0, missed: 0 },   // accuracy of the notes played (Learn mode), 0..1 each
       loopRep: 0,              // loop passes completed since the count was reset
       waitStartMs: 0,          // when Learn mode stopped to wait for you
 
@@ -551,8 +578,10 @@
       metronome: true,
       countIn: true,
       toleranceMs: 200,
+      lookAheadMs: 1000,         // how long before its time the next expected note / chord is shown on the keyboard
       showKeyboard: true,
-      handsFromTracks: true,     // use separate MIDI tracks/channels as left/right hand when the file has them
+      handsFromTracks: true,     // read the hands from the file's MIDI channels / tracks
+      useSplit: true,            // decide the hands by the key split (the channels are then ignored)
       handSplit: 60,             // otherwise: this pitch and above = right hand (60 = middle C)
       clickSubdiv: 1,            // clicks per beat: 1 | 2 | 3 | 4
       clickVolume: 100,          // audio click volume in %, 0..300
@@ -595,6 +624,7 @@
         merged.advancedTraining = merged.advancedTraining === true;
         merged.sendMidiClock = merged.sendMidiClock === true;
         const clampInt = (v, lo, hi, d) => { v = Math.round(Number(v)); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+        merged.lookAheadMs = clampInt(merged.lookAheadMs, 500, 2000, 1000);
         merged.accGateMs = clampInt(merged.accGateMs, 20, 1000, 100);
         merged.accZeroMs = clampInt(merged.accZeroMs, 50, 3000, 500);
         merged.accRollN = clampInt(merged.accRollN, 3, 100, 10);
@@ -602,6 +632,7 @@
         merged.midiInName = typeof merged.midiInName === 'string' ? merged.midiInName : '';
         merged.midiOutName = typeof merged.midiOutName === 'string' ? merged.midiOutName : '';
         merged.handsFromTracks = merged.handsFromTracks !== false;
+        merged.useSplit = merged.useSplit !== false;
         merged.handSplit = Math.round(Number(merged.handSplit));
         if (!Number.isFinite(merged.handSplit)) merged.handSplit = 60;
         merged.handSplit = Math.max(48, Math.min(72, merged.handSplit));
@@ -653,6 +684,8 @@
     const setCountInEl = document.getElementById('setCountIn');
     const setToleranceEl = document.getElementById('setTolerance');
     const tolValueEl = document.getElementById('tolValue');
+    const setLookAheadEl = document.getElementById('setLookAhead');
+    const lookAheadValueEl = document.getElementById('lookAheadValue');
     const setKeyboardEl = document.getElementById('setKeyboard');
     const handSelect = document.getElementById('handSelect');
     const setMetroOutEl = document.getElementById('setMetroOut');
@@ -675,6 +708,7 @@
     const setKeepAwakeEl = document.getElementById('setKeepAwake');
     const midiReconnectBtn = document.getElementById('midiReconnectBtn');
     const midiLogEl = document.getElementById('midiLog');
+    const setUseSplitEl = document.getElementById('setUseSplit');
     const setMidiClockEl = document.getElementById('setMidiClock');
     const advancedBar = document.getElementById('advancedBar');
     const loopRepGroup = document.getElementById('loopRepGroup');
@@ -682,6 +716,7 @@
     const repTargetValEl = document.getElementById('repTargetVal');
     const accRollingEl = document.getElementById('accRolling');
     const accTotalEl = document.getElementById('accTotal');
+    const accMissedEl = document.getElementById('accMissed');
     const accRollNEl = document.getElementById('accRollN');
     const setAdvancedEl = document.getElementById('setAdvanced');
     const advancedParamsEl = document.getElementById('advancedParams');
@@ -1503,6 +1538,10 @@
       return { left, right };
     }
 
+    // Hand source, from the two switches in Settings:
+    //   key split ON            -> hands by the split (channels ignored, even if the file has two)
+    //   split OFF, channels ON  -> hands from the file's channels / tracks (needs 2+ parts)
+    //   both OFF (or no parts)  -> no hand separation: one stream (sheet staves split at middle C, hand choice off)
     function assignHands(song) {
       const s = state.settings;
       const voices = song.voices || [];
@@ -1513,7 +1552,10 @@
       let map = null;
       let mode = 'pitch';
       let reason = null;
-      if (s.handsFromTracks && voices.length >= 2 && ov && known(ov.left) && known(ov.right)) {
+      let neutral = false;
+      if (s.useSplit) {
+        mode = 'pitch';
+      } else if (s.handsFromTracks && voices.length >= 2 && ov && known(ov.left) && known(ov.right)) {
         map = new Map();
         for (const v of voices) {
           const L = v.key === ov.left, R = v.key === ov.right;
@@ -1524,19 +1566,21 @@
         map = song.autoHands;
         mode = 'tracks';
       } else {
+        neutral = true;
+        mode = 'none';
         reason = !s.handsFromTracks ? 'off' : (voices.length < 2 ? 'single' : 'unclear');
       }
 
-      const byPitch = (n) => (n.pitch >= splitAtTick(n.startTick, song) ? 'right' : 'left');
+      const byPitch = (n) => (n.pitch >= (neutral ? 60 : splitAtTick(n.startTick, song)) ? 'right' : 'left');
       for (const n of song.notes) {
         let h = map ? map.get(n.track + ':' + n.channel) : undefined;
         if (h === undefined || h === 'both') h = byPitch(n);
         n.hand = h;   // null = a part the user left out
       }
 
-      const usesSplit = !map || [...map.values()].includes('both');
+      const usesSplit = mode === 'pitch' || (!!map && [...map.values()].includes('both'));
       song.handInfo = {
-        mode, reason, usesSplit,
+        mode, reason, usesSplit, neutral,
         parts: voices.map(v => `${v.name} → ${map ? (map.get(v.key) || 'not used') : '–'}`)
       };
     }
@@ -1691,6 +1735,7 @@
     function updateHandSettingsUI() {
       const s = state.settings;
       setHandsTracksEl.checked = !!s.handsFromTracks;
+      setUseSplitEl.checked = !!s.useSplit;
       updateSplitUI(true);
 
       const song = state.song;
@@ -1698,21 +1743,26 @@
       let text = '';
       if (!info) {
         text = '';
+      } else if (info.mode === 'pitch') {
+        text = 'Key split on: the hands follow the split point in the top bar' + (song.voices.length >= 2 ? ' (this file\'s channels are ignored).' : '.');
       } else if (info.mode === 'tracks') {
         const shown = info.parts.slice(0, 4).join(', ') + (info.parts.length > 4 ? ', …' : '');
-        text = `Auto-detected from this file's parts: ${shown}.`;
+        text = `Key split off: hands read from this file's channels: ${shown}.`;
       } else if (info.mode === 'tracks-manual') {
-        text = 'Using the parts you picked below.';
+        text = 'Key split off: using the parts you picked below.';
       } else if (info.reason === 'off') {
-        text = 'Off: the split point in the top bar is used.';
+        text = 'Key split and channels are both off: no left / right separation (the sheet is split at middle C).';
       } else if (info.reason === 'single') {
-        text = 'This file has all notes in a single track, so the split point in the top bar is used.';
+        text = 'Key split off and this file has a single channel: no left / right separation. Turn the key split on to separate the hands.';
       } else {
-        text = 'Auto-detect could not tell the hands apart: the split point is in use. You can pick the parts below.';
+        text = 'Key split off, and the channels could not be told apart: no left / right separation. Pick the parts below or turn the key split on.';
       }
       handsInfoEl.textContent = text;
 
       const splitActive = !info || info.usesSplit;
+      const neutral = !!(info && info.neutral);
+      handSelect.disabled = neutral;
+      handSelect.title = neutral ? 'No left / right separation in this song (see Settings)' : '';
       barSplitBtn.disabled = !splitActive || !song;
       newSplitBtn.disabled = !splitActive || !song;
       splitUsable = splitActive && !!song;
@@ -1721,7 +1771,7 @@
 
       // Manual part -> hand mapping (only when the file has 2+ parts)
       const voices = song ? (song.voices || []) : [];
-      const showMap = !!song && s.handsFromTracks && voices.length >= 2;
+      const showMap = !!song && s.handsFromTracks && voices.length >= 2 && !s.useSplit;
       trackMapRows.classList.toggle('hidden', !showMap);
       if (showMap) {
         const keys = new Set(voices.map(v => v.key));
@@ -1755,6 +1805,7 @@
     // Which hand a note belongs to ('both' = every note that is assigned to a hand)
     function noteInHand(note, hand) {
       if (!note.hand) return false;
+      if (state.song && state.song.handInfo && state.song.handInfo.neutral) return true;   // no hand separation
       if (hand === 'right') return note.hand === 'right';
       if (hand === 'left') return note.hand === 'left';
       return true;
@@ -2460,8 +2511,10 @@
       if (e >= zero) return 0;
       return 1 - (e - gate) / (zero - gate);   // straight line from 100% down to 0%
     }
-    function recordAccuracy(score) {
+    function recordAccuracy(score, keys = 1, missedKeys = 0) {
       const a = state.acc;
+      a.keys += keys;
+      a.missed += missedKeys;
       a.recent.push(score);
       if (a.recent.length > 200) a.recent.shift();
       a.sum += score;
@@ -2476,7 +2529,7 @@
       return state.acc.n ? state.acc.sum / state.acc.n : null;
     }
     function resetAccuracy() {
-      state.acc = { recent: [], sum: 0, n: 0 };
+      state.acc = { recent: [], sum: 0, n: 0, keys: 0, missed: 0 };
       updateAdvancedUI();
     }
     function resetLoopCounter() {
@@ -2516,6 +2569,10 @@
       accRollingEl.style.color = pctColor(rolling);
       accTotalEl.textContent = fmtPct(total);
       accTotalEl.style.color = pctColor(total);
+      accTotalEl.title = state.acc.n ? `Average of all ${state.acc.n} notes since the last reset (${state.acc.keys} keys)` : 'No notes yet';
+      accRollingEl.title = `Average of the last ${Math.min(state.settings.accRollN, state.acc.recent.length)} notes`;
+      accMissedEl.textContent = state.acc.missed;
+      accMissedEl.style.color = state.acc.missed ? '#B91C1C' : '#78716C';
       accRollNEl.textContent = state.settings.accRollN;
       loopRepGroup.classList.toggle('hidden', !(state.loopBars > 0));
       loopRepCountEl.textContent = state.loopRep;
@@ -2545,14 +2602,19 @@
 
       for (const reqPitch of step.requiredPitches) state.matchedHeld.add(reqPitch);
       state.learnStats.hit++;
-      recordAccuracy(accScore(learnErrorMs(step)));
+      recordAccuracy(accScore(learnErrorMs(step)), step.requiredPitches.size, 0);
       advanceStep(true);
     }
 
     // Move on to the next step after it was played (matched) or, with wait mode off, let go (missed).
     // Returns true when the piece is over and playback was stopped.
     function advanceStep(matched) {
-      if (!matched) { state.learnStats.missed++; recordAccuracy(0); }
+      if (!matched) {
+        state.learnStats.missed++;
+        const ms = state.learnSteps[state.currentStepIndex];
+        const nk = ms ? ms.requiredPitches.size : 1;
+        recordAccuracy(0, nk, nk);   // every key of a missed note or chord counts as missed
+      }
       state.currentStepIndex++;
       state.waitingForUser = false;
       state.stepFreshPresses.clear();
@@ -3347,10 +3409,13 @@
     //     yellow = next expected key | green = expected key you are pressing
     //     red = a different key you are pressing
     // --------------------------------------------------------------------------
-    const KB_YELLOW = '#FACC15';
+    const KB_YELLOW = '#FDE047';   // next expected key, left hand (light)
     const KB_GREEN = '#22C55E';
     const KB_RED = '#EF4444';
-    const KB_BLUE = '#3B82F6';   // next expected key, right hand (yellow = left hand)
+    const KB_ORANGE = '#F59E0B';   // sounding now, left hand (darker yellow)
+    const KB_DBLUE = '#1D4ED8';    // sounding now, right hand (darker blue)
+    const KB_SOUND_MIN_MS = 120;      // even a very short note stays visible this long
+    const KB_BLUE = '#93C5FD';   // next expected key, right hand (yellow = left hand)
 
     function isBlackKey(p) {
       const m = p % 12;
@@ -3377,33 +3442,61 @@
       return { lo, hi };
     }
 
+    // Is the next step close enough to be shown? (always when paused; while playing: within the look-ahead time)
+    function stepInLookAhead(step) {
+      if (!state.isPlaying) return true;
+      const msUntil = (step.tick - state.currentTick) / (ticksPerMsAt(state.currentTick) * state.speed);
+      return msUntil <= state.settings.lookAheadMs;
+    }
+
+    // Keys the player is waiting for (Learn mode): the notes of the next step
     function getExpectedPitches() {
       const out = new Set();
       if (!state.song) return out;
       if (state.mode === 'learn') {
         const step = state.learnSteps[state.currentStepIndex];
-        if (step) for (const p of step.requiredPitches) out.add(p);
-      } else if (state.isPlaying) {
-        for (const n of state.song.notes) {
-          if (n.hand && state.currentTick >= n.startTick && state.currentTick <= n.endTick) out.add(n.pitch);
-        }
+        if (step && stepInLookAhead(step)) for (const p of step.requiredPitches) out.add(p);
       }
       return out;
+    }
+
+    // Keys that count as right if the player presses them now: the note's written length, plus the tolerance on both sides
+    function getValidPitches() {
+      const out = new Set();
+      if (!state.song || !state.isPlaying) return out;
+      const tick = state.currentTick;
+      const tolTicks = state.settings.toleranceMs * ticksPerMsAt(tick) * state.speed;
+      const hand = state.settings.hand;
+      for (const n of state.song.notes) {
+        if (n.startTick - tolTicks > tick) break;
+        if (!n.hand || !noteInHand(n, hand)) continue;
+        if (tick <= n.startTick + Math.max(n.durationTicks, KB_SOUND_MIN_MS * ticksPerMsAt(tick) * state.speed) + tolTicks) out.add(n.pitch);
+      }
+      return out;
+    }
+
+    // Keys that are sounding right now in the music, with the hand, each for its note length but at most a cap
+    function getSoundingHands() {
+      const m = new Map();
+      if (!state.song || !state.isPlaying) return m;
+      const tick = state.currentTick;
+      const tpms = ticksPerMsAt(tick) * state.speed;
+      const hand = state.settings.hand;
+      for (const n of state.song.notes) {
+        if (n.startTick > tick) break;   // notes are sorted by start
+        if (!n.hand || !noteInHand(n, hand) || m.has(n.pitch)) continue;
+        // lit for the note's written length (a whole note stays lit for the whole bar), at least a short flash
+        if (tick < n.startTick + Math.max(n.durationTicks, KB_SOUND_MIN_MS * tpms)) m.set(n.pitch, n.hand);
+      }
+      return m;
     }
 
     // Which hand each expected key belongs to
     function getExpectedHands() {
       const m = new Map();
-      if (!state.song) return m;
-      const add = (n) => { if (n.hand && !m.has(n.pitch)) m.set(n.pitch, n.hand); };
-      if (state.mode === 'learn') {
-        const step = state.learnSteps[state.currentStepIndex];
-        if (step) step.notes.forEach(add);
-      } else if (state.isPlaying) {
-        for (const n of state.song.notes) {
-          if (state.currentTick >= n.startTick && state.currentTick <= n.endTick) add(n);
-        }
-      }
+      if (!state.song || state.mode !== 'learn') return m;
+      const step = state.learnSteps[state.currentStepIndex];
+      if (step && stepInLookAhead(step)) for (const n of step.notes) if (n.hand && !m.has(n.pitch)) m.set(n.pitch, n.hand);
       return m;
     }
 
@@ -3441,13 +3534,17 @@
 
       const expected = getExpectedPitches();
       const expHand = getExpectedHands();
+      const sounding = getSoundingHands();
+      const valid = getValidPitches();
       const held = state.userHeldPitches;
 
       function keyColor(p, black) {
         if (held.has(p)) {
-          return (expected.has(p) || state.matchedHeld.has(p)) ? KB_GREEN : KB_RED;
+          // green: right key in its time frame (note length +/- tolerance); red: wrong key or out of the time frame
+          return (valid.has(p) || expected.has(p) || state.matchedHeld.has(p)) ? KB_GREEN : KB_RED;
         }
-        if (expected.has(p)) return expHand.get(p) === 'right' ? KB_BLUE : KB_YELLOW;
+        if (expected.has(p)) return expHand.get(p) === 'right' ? KB_BLUE : KB_YELLOW;   // the next key wins over a note still sounding
+        if (sounding.has(p)) return sounding.get(p) === 'right' ? KB_DBLUE : KB_ORANGE;
         return black ? '#2A2522' : '#FFFDF8';
       }
 
@@ -3478,7 +3575,7 @@
         kbPath(kbCtx, x, topY, blackW, blackH, 3);
         kbCtx.fillStyle = keyColor(bp, true);
         kbCtx.fill();
-        kbCtx.strokeStyle = (held.has(bp) || expected.has(bp)) ? '#6B5B2E' : '#14110F';
+        kbCtx.strokeStyle = (held.has(bp) || expected.has(bp) || sounding.has(bp)) ? '#6B5B2E' : '#14110F';
         kbCtx.stroke();
       });
     }
@@ -3700,6 +3797,12 @@
         legacySongSeed = null;
       }
       state.songKey = key;
+      if (prefs.useSplit === null) {
+        // first time with this file: keep the old behaviour (channels when the file clearly has two hands, else the split)
+        const auto = computeVoiceHands(parsed);
+        const channels = prefs.handsFromTracks && parsed.voices.length >= 2 && ((prefs.leftVoice && prefs.rightVoice) || auto);
+        prefs.useSplit = !channels;
+      }
       applySongPrefs(prefs);
 
       assignHands(parsed);
@@ -3750,7 +3853,7 @@
     // --------------------------------------------------------------------------
     const SONG_PREFS_KEY = 'midiTrainerSongPrefs';
     const DEFAULT_SONG_PREFS = {
-      handsFromTracks: true, handSplit: 60, hand: 'both',
+      handsFromTracks: true, useSplit: null, handSplit: 60, hand: 'both',
       leftVoice: null, rightVoice: null,
       loopBars: 0, loopStartBar: 1, speed: 100,
       barSplits: {},
@@ -3796,6 +3899,7 @@
     function sanitizePrefs(p) {
       const out = { ...DEFAULT_SONG_PREFS, ...p };
       out.handsFromTracks = out.handsFromTracks !== false;
+      out.useSplit = typeof out.useSplit === 'boolean' ? out.useSplit : null;
       out.handSplit = Math.max(48, Math.min(72, Math.round(Number(out.handSplit)) || 60));
       if (!['both', 'left', 'right'].includes(out.hand)) out.hand = 'both';
       out.leftVoice = typeof out.leftVoice === 'string' ? out.leftVoice : null;
@@ -3829,6 +3933,7 @@
       const ov = state.voiceOverride;
       all[state.songKey] = {
         handsFromTracks: !!state.settings.handsFromTracks,
+        useSplit: !!state.settings.useSplit,
         handSplit: state.settings.handSplit,
         hand: state.settings.hand,
         leftVoice: ov ? ov.left : null,
@@ -3846,6 +3951,7 @@
     function applySongPrefs(p) {
       const s = state.settings;
       s.handsFromTracks = p.handsFromTracks;
+      s.useSplit = p.useSplit !== false;
       s.handSplit = p.handSplit;
       state.barSplits = { ...p.barSplits };
       state.splitEdit = null;
@@ -3892,11 +3998,31 @@
     // --------------------------------------------------------------------------
     // 7c-3. VERSION & CHANGELOG
     // --------------------------------------------------------------------------
-    const APP_VERSION = '7.7';
+    const APP_VERSION = '7.8.2';
     const APP_RELEASE_DATE = '2026-11-16';
     appVersionBadge.textContent = 'v' + APP_VERSION;
     // approx: true = date reconstructed afterwards
     const CHANGELOG = [
+      {
+        version: '7.8.2', date: '2026-11-18',
+        features: ['Look-ahead setting (0.5 to 2 s): how long before its time the next expected key or chord lights up in Learn mode, also over a key that is still sounding. Only the next note is shown.'],
+        fixes: []
+      },
+      {
+        version: '7.8.1', date: '2026-11-18',
+        features: [],
+        fixes: ['Keyboard: a sounding key now stays lit for the true length of its note (a whole note for the whole bar, a sixteenth briefly, minimum 0.12 s) instead of a fixed cap.']
+      },
+      {
+        version: '7.8', date: '2026-11-18',
+        features: [
+          'Key split and "read hands from MIDI channels" are now two separate switches: one channel with or without the split, two channels with or without the split. With the split on, a two-channel file is treated as one.',
+          'Export / import (beta): export a MIDI file with the left hand on channel 1 and the right hand on channel 2; export the splits to a small file (it remembers which MIDI file it belongs to) and load it back.',
+          'Keyboard: a key that is sounding in the music turns orange (left) or dark blue (right) for the written length of the note; light yellow / light blue marks the key you must play next; green when you press a right key within its time frame (note length plus the tolerance), red for a wrong key or out of time.',
+          'Advanced training: a count of the keys you missed.'
+        ],
+        fixes: []
+      },
       {
         version: '7.7', date: '2026-11-18',
         features: [
@@ -4117,6 +4243,8 @@
       setCountInEl.checked = !!state.settings.countIn;
       setToleranceEl.value = state.settings.toleranceMs;
       tolValueEl.textContent = state.settings.toleranceMs + ' ms';
+      setLookAheadEl.value = state.settings.lookAheadMs;
+      lookAheadValueEl.textContent = state.settings.lookAheadMs + ' ms';
       setKeyboardEl.checked = !!state.settings.showKeyboard;
       kbWrap.style.display = state.settings.showKeyboard ? '' : 'none';
       handSelect.value = state.settings.hand;
@@ -4193,6 +4321,11 @@
       refreshHands();
     });
 
+    setUseSplitEl.addEventListener('change', () => {
+      state.settings.useSplit = setUseSplitEl.checked;
+      saveSettings();
+      refreshHands();
+    });
     setHandsTracksEl.addEventListener('change', () => {
       state.settings.handsFromTracks = setHandsTracksEl.checked;
       saveSettings();
@@ -4377,6 +4510,165 @@
       }
     });
 
+    // ---- Export / import (beta) -------------------------------------------------------------
+    function downloadBlob(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 2000);
+    }
+    function safeFileName(s) {
+      return (String(s || 'song').replace(/\.(mid|midi)$/i, '').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'song');
+    }
+
+    // Standard MIDI File, format 1: a tempo track, then "Left hand" (channel 1) and "Right hand" (channel 2)
+    function buildHandsMidi(song) {
+      const u16 = n => [(n >> 8) & 255, n & 255];
+      const u32 = n => [(n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255];
+      const vlq = (n) => { n = Math.max(0, Math.round(n)); const o = [n & 0x7f]; n >>= 7; while (n > 0) { o.unshift((n & 0x7f) | 0x80); n >>= 7; } return o; };
+      const text = (type, str) => { const b = [...new TextEncoder().encode(str)]; return [0xFF, type, ...vlq(b.length), ...b]; };
+      const chunk = (body) => [0x4D, 0x54, 0x72, 0x6B, ...u32(body.length), ...body];
+
+      // track 0: name, time signature, key, tempo changes
+      const t0 = []; let last = 0;
+      const add0 = (tick, bytes) => { t0.push(...vlq(tick - last), ...bytes); last = tick; };
+      add0(0, text(0x03, song.title || 'Piano Trainer export'));
+      add0(0, [0xFF, 0x58, 0x04, song.timeSig.numerator & 255, Math.round(Math.log2(song.timeSig.denominator)) & 255, 24, 8]);
+      add0(0, [0xFF, 0x59, 0x02, (song.keySig ? song.keySig.sf : 0) & 255, (song.keySig ? song.keySig.mi : 0) & 255]);
+      for (const t of song.tempos) {
+        const us = t.microsecondsPerQuarter;
+        add0(t.tick, [0xFF, 0x51, 0x03, (us >> 16) & 255, (us >> 8) & 255, us & 255]);
+      }
+      add0(last, [0xFF, 0x2F, 0x00]);
+
+      const handTrack = (hand, name, channel) => {
+        const ev = [];
+        let count = 0;
+        for (const n of song.notes) {
+          if (n.hand !== hand) continue;
+          const pitch = Math.max(0, Math.min(127, n.pitch));
+          const vel = Math.max(1, Math.min(127, n.velocity || 80));
+          ev.push({ tick: n.startTick, off: 1, bytes: [0x90 | channel, pitch, vel] });
+          ev.push({ tick: n.startTick + n.durationTicks, off: 0, bytes: [0x80 | channel, pitch, 0] });
+          count++;
+        }
+        ev.sort((a, b) => a.tick - b.tick || a.off - b.off);   // note-off before note-on at the same tick
+        const body = []; let lt = 0;
+        body.push(0, ...text(0x03, name));
+        body.push(0, 0xC0 | channel, 0);   // piano
+        for (const e of ev) { body.push(...vlq(e.tick - lt), ...e.bytes); lt = e.tick; }
+        body.push(...vlq(0), 0xFF, 0x2F, 0x00);
+        return { body, count };
+      };
+      const left = handTrack('left', 'Left hand', 0);
+      const right = handTrack('right', 'Right hand', 1);
+      const bytes = [0x4D, 0x54, 0x68, 0x64, ...u32(6), ...u16(1), ...u16(3), ...u16(song.ticksPerQuarter),
+        ...chunk(t0), ...chunk(left.body), ...chunk(right.body)];
+      return { data: new Uint8Array(bytes), left: left.count, right: right.count };
+    }
+
+    function exportHandsMidi() {
+      if (!state.song) return;
+      const r = buildHandsMidi(state.song);
+      downloadBlob(new Blob([r.data], { type: 'audio/midi' }), safeFileName(state.song.title) + '_left-right.mid');
+      showToast(`Exported MIDI: ${r.left} left-hand and ${r.right} right-hand notes`);
+    }
+
+    // A small fingerprint of the notes, so a splits file can tell whether it is loaded into the same MIDI file
+    function songFingerprint(song) {
+      let h = 2166136261;
+      for (const n of song.notes) {
+        h ^= (n.pitch * 131 + n.startTick) | 0;
+        h = Math.imul(h, 16777619);
+      }
+      return (h >>> 0).toString(16);
+    }
+
+    function buildSplitsFile() {
+      const song = state.song, s = state.settings, ov = state.voiceOverride;
+      return {
+        format: 'piano-trainer-splits',
+        version: 1,
+        app: 'Piano Trainer ' + APP_VERSION,
+        exportedAt: new Date().toISOString(),
+        midi: {
+          title: song.title,
+          songKey: state.songKey,
+          ticksPerQuarter: song.ticksPerQuarter,
+          noteCount: song.notes.length,
+          totalTicks: song.totalTicks,
+          fingerprint: songFingerprint(song)
+        },
+        hands: {
+          useSplit: !!s.useSplit,
+          readChannels: !!s.handsFromTracks,
+          mainSplit: s.handSplit,
+          leftPart: ov ? ov.left : null,
+          rightPart: ov ? ov.right : null
+        },
+        splits: state.splitChanges.map(c => ({ tick: c.tick, bar: barNumAt(c.tick), pitch: c.pitch, note: noteName(c.pitch) })),
+        barSplits: Object.entries(state.barSplits).map(([bar, pitch]) => ({ bar: Number(bar), pitch }))
+      };
+    }
+
+    function exportSplitsFile() {
+      if (!state.song) return;
+      const f = buildSplitsFile();
+      downloadBlob(new Blob([JSON.stringify(f, null, 2)], { type: 'application/json' }), safeFileName(state.song.title) + '.splits.json');
+      showToast(`Exported ${f.splits.length} split${f.splits.length === 1 ? '' : 's'} + the main split`);
+    }
+
+    async function importSplitsFile(file) {
+      let f;
+      try {
+        f = JSON.parse(await file.text());
+      } catch (e) {
+        showToast('That file is not a splits file');
+        return;
+      }
+      if (!f || f.format !== 'piano-trainer-splits' || !Array.isArray(f.splits)) {
+        showToast('That file is not a Piano Trainer splits file');
+        return;
+      }
+      if (!state.song) return;
+      const same = f.midi && f.midi.fingerprint === songFingerprint(state.song);
+      if (!same) {
+        const name = (f.midi && f.midi.title) || 'another file';
+        const r = await askChoice(`This splits file was made for "${name}"${f.midi && f.midi.noteCount ? ` (${f.midi.noteCount} notes)` : ''}, but the open song is "${state.song.title}" (${state.song.notes.length} notes). Load the splits anyway?`, 'Load anyway', { cancelLabel: 'Cancel', okDanger: false });
+        if (r !== 'ok') return;
+      }
+      const h = f.hands || {};
+      const clampP = (v) => Math.max(48, Math.min(72, Math.round(Number(v)) || 60));
+      const s = state.settings;
+      if (typeof h.useSplit === 'boolean') s.useSplit = h.useSplit;
+      if (typeof h.readChannels === 'boolean') s.handsFromTracks = h.readChannels;
+      if (h.mainSplit !== undefined) s.handSplit = clampP(h.mainSplit);
+      const keys = new Set((state.song.voices || []).map(v => v.key));
+      state.voiceOverride = (h.leftPart && h.rightPart && keys.has(h.leftPart) && keys.has(h.rightPart)) ? { left: h.leftPart, right: h.rightPart } : null;
+      state.splitChanges = f.splits
+        .filter(c => c && Number.isFinite(Number(c.tick)) && Number(c.tick) >= 0)
+        .map(c => ({ tick: Math.round(Number(c.tick)), pitch: clampP(c.pitch) }))
+        .sort((a, b) => a.tick - b.tick);
+      state.barSplits = {};
+      for (const b of (f.barSplits || [])) if (b && Number(b.bar) >= 1) state.barSplits[Math.round(Number(b.bar))] = clampP(b.pitch);
+      state.splitEdit = null;
+      saveSettings();
+      refreshHands();
+      showToast(`Loaded ${state.splitChanges.length} split${state.splitChanges.length === 1 ? '' : 's'}`);
+    }
+
+    document.getElementById('exportMidiBtn').addEventListener('click', exportHandsMidi);
+    document.getElementById('exportSplitsBtn').addEventListener('click', exportSplitsFile);
+    const splitsFileInput = document.getElementById('splitsFileInput');
+    document.getElementById('importSplitsBtn').addEventListener('click', () => { splitsFileInput.value = ''; splitsFileInput.click(); });
+    splitsFileInput.addEventListener('change', () => {
+      const f = splitsFileInput.files && splitsFileInput.files[0];
+      if (f) importSplitsFile(f);
+    });
+
     // Header metronome button <-> the Settings checkbox (same setting)
     function updateMetroBtn() {
       const on = !!state.settings.metronome;
@@ -4413,6 +4705,11 @@
     setToleranceEl.addEventListener('input', () => {
       state.settings.toleranceMs = parseInt(setToleranceEl.value, 10) || 0;
       tolValueEl.textContent = state.settings.toleranceMs + ' ms';
+      saveSettings();
+    });
+    setLookAheadEl.addEventListener('input', () => {
+      state.settings.lookAheadMs = Math.max(500, Math.min(2000, parseInt(setLookAheadEl.value, 10) || 1000));
+      lookAheadValueEl.textContent = state.settings.lookAheadMs + ' ms';
       saveSettings();
     });
     setKeyboardEl.addEventListener('change', () => {
